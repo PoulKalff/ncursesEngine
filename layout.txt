@@ -1,0 +1,32 @@
+nCursesEngine Layout:
+------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ideer / brainstorm:
+------------------------
+ - En form for funktion hvor man kan tilfoeje colour-init-pairs, ud over default......addColor(c1, c2='Black')
+ - Et kald hvor man kan tilfoeje keys, og definere hvad der skal ske hvis de bliver kaldt
+ - Hvad/hvordan skal pointeren defineres....? Der skal kun vaere EEN!
+ - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
+ - 
+
+
+
+
+
+
+cPos = (width - 1) / 2
+
+
+
