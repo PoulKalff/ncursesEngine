@@ -1,199 +1,96 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import sys
 import curses
 
 # --- Variables -----------------------------------------------------------------------------------
 
 
-# --- Functions -----------------------------------------------------------------------------------
-
-
 # --- Classes -------------------------------------------------------------------------------------
 
+class NCEngine:
+	""" Presents the screen of a program """
 
-class FlipSwitch():
-    # Represents a switch with on and off-state
+	frame = []
+	frameMin = [10,10]
 
-    def __init__(self, Ind):
-        self._value = Ind
-
-    def flip(self):
-        if self._value == 1:
-            self._value = 0
-        else:
-            self._value = 1
-
-    def get(self):
-        return self._value
-
-
-class RangeIterator():
-    # (v3) Represents a range of INTs from 0 -> X
-
-    def __init__(self, Ind, loop=True):
-        self.current = 0
-        self.max = Ind
-        self.loop = loop
-
-    def inc(self, count=1):
-        self.current += count
-        self._test()
-
-    def dec(self, count=1):
-        self.current -= count
-        self._test()
-
-    def incMax(self, count=1):
-        """ Increase both value and max valuse """
-        self.max += count
-        self.current += count
-        self._test()
-
-    def decMax(self, count=1):
-        """ Increase both value and max valuse """
-        self.max -= count
-        self.current -= count
-        self._test()
-
-    def _test(self):
-        if self.loop:
-            if self.current > self.max:
-                self.current -= self.max + 1
-            elif self.current < 0:
-                self.current += self.max + 1
-        elif not self.loop:
-            if self.current >= self.max:
-                self.current = self.max
-            elif self.current < 0:
-                self.current = 0
-
-    def get(self):
-        return self.current
+	def __init__(self):
+		self.screen = curses.initscr()
+		self.screen.border(0)
+		self.screen.keypad(1)
+		self.updatePosition()
+		curses.noecho()
+		curses.start_color()
+		curses.curs_set(0)
 
 
-class nCursesEngine():
-	""" Main class of nCursesEngine, must be inherited """
-
-    def __init__(self):
-        self.pointer = RangeIterator(10, False)
-        self.running = True
-        self.status = 'OK'
-        self.frameBuffer = []
-        # Start en screen op
-        self.screen = curses.initscr()
-        self.screen.border(0)
-        self.screen.keypad(1)
-        curses.noecho()
-        curses.start_color()
-        curses.curs_set(0)
-        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
-        curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLUE)
-        self.loop()
+	def updatePosition(self):
+		self.height, self.width = self.screen.getmaxyx()
+		self.center = (self.width - 1) / 2
 
 
-    def loop(self):
-        while self.running:
-            self.displayScreen()
-            self.getInput()
-        self.killScreen()
-        sys.exit('\n Program terminated normally...\n')
+	def createMenu(self, posX, posY, items):
+		""" Creates the data used for painting a menu """
+		screenData = []
+		self.updatePosition()
+		# horizontal lines
+		screenData.append([yCord + 3, xCord, '╭' + '─' * 21 + '╮', 5])
+		screenData.append([yCord + 9, xCord, '└' + '─' * 21 + '╯', 5])
+		# vertical lines
+		screenData.append([yCord + 4, xCord, '│                     │', 5])
+		screenData.append([yCord + 5, xCord, '│                     │', 5])
+		screenData.append([yCord + 6, xCord, '│                     │', 5])
+		screenData.append([yCord + 7, xCord, '│                     │', 5])
+		# text
+		col = [4, 4, 4]
+		screenData.append([yCord + 5, xCord + 5, 'Add New Item', col[0]])
+		screenData.append([yCord + 6, xCord + 5, 'Purge Backups', col[1]])
+		screenData.append([yCord + 7, xCord + 5, 'Switch View', col[2]])
+		return screenData
 
 
-	def getDim(self, dim='BOTH'):
-		""" returns the height, width or both, of the current window """
-		height, width = self.screen.getmaxyx()
-		cPosX = width / 2
-		cPosY = height / 2
-		if dim.upper() == 'H':
-			return height
-		elif dim.upper() == 'W':
-			return width
-		elif dim.upper() == 'HC':
-			return cPosY
-		elif dim.upper() == 'WC':
-			return cPosX
-		else:
-			return (height, width)
-
-
-	def addColor(self, c1, c2=curses.COLOR_BLACK):
-		""" inits new colour-pair if it does not exist, returns the number of the (new or old) pair """
+	def validate(self):
+		""" checks the data in self.frame, ensures that no data exists outside borders """
 		pass
 
 
-	def drawFrame(self):
-		""" Draws the current frame and empties the framebuffer """
-
-		self.frameBuffer = []
-		pass
-
-	def addData(self, data):
-		""" Adds data to the framebuffer """
-		pass
-
-
-    def updateStatus(self, newStatus):
-        """ Sets status for loaded objects. Status exists only per session """
-        self.status = newStatus
-
-
-
-        self. screen.refresh()
-        pass
-     
-
-    def killScreen(self):
-        # Set everything back to normal
-        self.screen.keypad(0)
-        curses.echo()
-        curses.nocbreak()
-        curses.endwin()
+	def render(self):
+		""" handles resize and displays the data in "data" """
+		self.validate()
+		self.screen.clear()
+		# check if resized
+		self.updatePosition()
+		if curses.is_term_resized(self.height, self.width):
+			curses.resizeterm(self.height, self.width)
+		# paint window
+		if self.height > self.frameMin[0] and self.width > self.frameMin[0]:    # Match text when populated
+			for x, y, text, color in self.frame:
+				try:
+					self.screen.addstr(x, y, str(text), curses.color_pair(color))
+				except Exception as inst:
+					sys.exit(str(inst))
+		elif self.height > 1 and self.width > 5:
+			self.screen.addstr(0, 0, "Window not displayed", curses.color_pair(1))
+		self.screen.refresh()
 
 
-    def getInput(self):
-        """ Retrieve input from the keyboard and proccess those"""
-        pass
-
-    def createMenu(self):
-        """ Creates the data used for painting the main menu """
-        pass
-
-    def createFrame(self):
-        """ Creates the data used for painting the frame """
-        pass
-
-    def createConfig(self):
-        """ Creates the data used for painting the text """
-        pass
-
-        
+	def getInput(self):
+		""" Retrieve input from the keyboard and return those"""
+		keyPressed = self.screen.getch()
+		return keyPressed
 
 
-# --- Main  ---------------------------------------------------------------------------------------
+	def terminate(self):
+		# Set everything back to normal
+		self.screen.keypad(0)
+		curses.echo()
+		curses.nocbreak()
+		curses.endwin()
 
-if os.getuid() != 0:
-    sys.exit('\n  Must be run with admin priviliges\n')
-else:
-    objNCE = nCursesEngine()
+
+
+
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - 
-
-
-
-
-
-
-
-
-
-
+# -
 
