@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import curses
-
-# --- Variables -----------------------------------------------------------------------------------
-
+import sys
 
 # --- Classes -------------------------------------------------------------------------------------
 
@@ -22,6 +20,13 @@ class NCEngine:
 		curses.noecho()
 		curses.start_color()
 		curses.curs_set(0)
+		curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)			# more generic... have 2 standard, and other must be custom?
+		curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
+		curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLACK)
+		curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+		curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+		curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)
+		curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLUE)
 
 
 	def updatePosition(self):
@@ -49,26 +54,25 @@ class NCEngine:
 		return screenData
 
 
-	def validate(self):
-		""" checks the data in self.frame, ensures that no data exists outside borders """
-		pass
-
-
 	def render(self):
 		""" handles resize and displays the data in "data" """
-		self.validate()
+		self.updatePosition()
 		self.screen.clear()
 		# check if resized
-		self.updatePosition()
 		if curses.is_term_resized(self.height, self.width):
 			curses.resizeterm(self.height, self.width)
 		# paint window
-		if self.height > self.frameMin[0] and self.width > self.frameMin[0]:    # Match text when populated
+		if self.height > self.frameMin[0] and self.width > self.frameMin[1]:    # Match text when populated
 			for x, y, text, color in self.frame:
-				try:
-					self.screen.addstr(x, y, str(text), curses.color_pair(color))
-				except Exception as inst:
-					sys.exit(str(inst))
+				totalLength = x + len(text)
+				if totalLength > self.width:
+					text = text[:self.width - 6] + ' >>'
+				if y < self.height:
+					self.screen.addstr(y, x, str(text), curses.color_pair(color))
+				else:
+					self.screen.addstr(self.height - 1, 2, '^ ' * (self.width / 2 - 2), curses.color_pair(color))
+
+
 		elif self.height > 1 and self.width > 5:
 			self.screen.addstr(0, 0, "Window not displayed", curses.color_pair(1))
 		self.screen.refresh()

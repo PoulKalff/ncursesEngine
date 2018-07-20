@@ -19,14 +19,12 @@ running = True
 
 obj = NCEngine()
 
-# set minimum, before screen blanks
-obj.frameMin = [50, 30]
 # add dat to frame/display
-obj.frame.append([2, 2, 'Are you sure that you want to overwrite the ORIGINAL file "' + '1' + '" with its backup?' , 5])
-obj.frame.append([3, 2, 'This is a potentially very dangerous operation!!!', 5])
-obj.frame.append([5, 2, 'Please type in "doit!" to complete the operation', 5])
-obj.frame.append([5, 18, 'doit!', 6])
-obj.frame.append([6, 2, 'Any other command cancels request', 5])
+obj.frame.append([2, 2,  'Are you sure thatINAL file "' + '1' + '" with its backup?' , 5])
+obj.frame.append([2, 3,  'This is a potentially very dangerous operats a potentially very dangerous operats a potentially very dangerous operats a potentially very dangerous operation!!!', 5])
+obj.frame.append([2, 4,  'Please type in "doit!" to complete the operation', 5])
+obj.frame.append([2, 5,  'Any other command cancels request', 5])
+obj.frame.append([2, 32, 'Any other command cancels request', 5])
 
 # loop and test keys
 while running:
