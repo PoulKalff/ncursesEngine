@@ -3,6 +3,7 @@
 
 import os
 import sys
+import locale
 from ncengine import NCEngine
 
 # --- Variables -----------------------------------------------------------------------------------
@@ -25,6 +26,12 @@ obj.frame.append([2, 3,  'This is a potentially very dangerous operats a potenti
 obj.frame.append([2, 4,  'Please type in "doit!" to complete the operation', 5])
 obj.frame.append([2, 5,  'Any other command cancels request', 5])
 obj.frame.append([2, 32, 'Any other command cancels request', 5])
+# add Menu
+obj.createMenu(20, 10, ["First", "Second", "Third", "Fourthflippingfourth"])
+obj.createMenu(20, 21, ['1', '2', '3'])
+obj.createMenu(25, 20, ['test123'])
+
+
 
 # loop and test keys
 while running:

@@ -1,8 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import curses
 import sys
+import curses
+import locale
+
+# --- Variables -----------------------------------------------------------------------------------
+
+version = "v1.03"   # added support for relaoding from .log
+locale.setlocale(locale.LC_ALL, '')
+code = locale.getpreferredencoding()
 
 # --- Classes -------------------------------------------------------------------------------------
 
@@ -11,6 +18,7 @@ class NCEngine:
 
 	frame = []
 	frameMin = [10,10]
+	menus = []
 
 	def __init__(self):
 		self.screen = curses.initscr()
@@ -38,20 +46,19 @@ class NCEngine:
 		""" Creates the data used for painting a menu """
 		screenData = []
 		self.updatePosition()
-		# horizontal lines
-		screenData.append([yCord + 3, xCord, '╭' + '─' * 21 + '╮', 5])
-		screenData.append([yCord + 9, xCord, '└' + '─' * 21 + '╯', 5])
-		# vertical lines
-		screenData.append([yCord + 4, xCord, '│                     │', 5])
-		screenData.append([yCord + 5, xCord, '│                     │', 5])
-		screenData.append([yCord + 6, xCord, '│                     │', 5])
-		screenData.append([yCord + 7, xCord, '│                     │', 5])
-		# text
-		col = [4, 4, 4]
-		screenData.append([yCord + 5, xCord + 5, 'Add New Item', col[0]])
-		screenData.append([yCord + 6, xCord + 5, 'Purge Backups', col[1]])
-		screenData.append([yCord + 7, xCord + 5, 'Switch View', col[2]])
-		return screenData
+		maxLength = len(max(items, key=lambda coll: len(coll)))
+		maxHeight = len(items)
+		screenData.append([posX, posY, '╭─' + ('─' * maxLength) + '─╮', 5])					# Top
+		for nr, item in enumerate(items):
+			missingSpace = maxLength - len(item)
+			screenData.append([posX, posY + nr + 1, '│ ' + item + (missingSpace * ' ')  + ' │', 5])
+		screenData.append([posX, posY + maxHeight + 1, '└─' + ('─' * maxLength) + '─╯', 5])		# Bottom
+		self.menus.append(screenData)
+
+
+	def lastMenuSpecs(self):
+		""" Get specifications of the last menu """
+		pass	# Use this to build next menu
 
 
 	def render(self):
@@ -61,9 +68,14 @@ class NCEngine:
 		# check if resized
 		if curses.is_term_resized(self.height, self.width):
 			curses.resizeterm(self.height, self.width)
+		# collect data
+		dispData = self.frame
+		for menu in self.menus:
+			for line in menu:
+				dispData.append(line)
 		# paint window
 		if self.height > self.frameMin[0] and self.width > self.frameMin[1]:    # Match text when populated
-			for x, y, text, color in self.frame:
+			for x, y, text, color in dispData:
 				totalLength = x + len(text)
 				if totalLength > self.width:
 					text = text[:self.width - 6] + ' >>'
@@ -71,8 +83,6 @@ class NCEngine:
 					self.screen.addstr(y, x, str(text), curses.color_pair(color))
 				else:
 					self.screen.addstr(self.height - 1, 2, '^ ' * (self.width / 2 - 2), curses.color_pair(color))
-
-
 		elif self.height > 1 and self.width > 5:
 			self.screen.addstr(0, 0, "Window not displayed", curses.color_pair(1))
 		self.screen.refresh()
