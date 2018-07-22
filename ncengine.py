@@ -8,9 +8,8 @@ import locale
 
 # --- Variables -----------------------------------------------------------------------------------
 
-version = "v1.03"   # added support for relaoding from .log
+version = "v0.03"   # initial development
 locale.setlocale(locale.LC_ALL, '')
-code = locale.getpreferredencoding()
 
 # --- Classes -------------------------------------------------------------------------------------
 
@@ -64,16 +63,6 @@ class RangeIterator():
     def get(self):
         return self.current
 
-class renderLine:
-    """ A renderLine object """
-
-    def __init__(self, xPos, yPos, text, color):
-        self.x = xPos
-        self.y = yPos
-        self.text = text
-        self.maxX = x + len(re.sub('[^\w\s]', '', text))
-        self.color = color
-
 
 class Menu:
     """ A menu object """
@@ -102,6 +91,7 @@ class NCEngine:
 		self.screen = curses.initscr()
 		self.screen.border(0)
 		self.screen.keypad(1)
+		self.screen.scrollok(0) 
 		self.getSize()
 		curses.noecho()
 		curses.curs_set(0)
@@ -161,9 +151,9 @@ class NCEngine:
 				if x + len(re.sub('[^\w\s]', '', text)) > self.width:
 					text = text[:self.width - 5] + ' ⇨'
 				if y < self.height:
-					self.screen.addstr(y, x, str(text), curses.color_pair(color))
+					self.screen.addstr(y, x, text, curses.color_pair(color))
 				else:
-					self.screen.addstr(self.height - 1, x, '⇩' * (len(text) / 3), curses.color_pair(color))
+					self.screen.addstr(self.height - 1, x, '⇩' * len(re.sub('[^\w\s]', '', text)), curses.color_pair(color))
 		elif self.height > 1 and self.width > 5:
 			self.screen.addstr(0, 0, "Window not displayed", curses.color_pair(300))
 		self.screen.refresh()
@@ -187,5 +177,5 @@ class NCEngine:
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - BUG : Noget galt med '>>', det vises på menuer...?
+# - BUG : Stadigt problemer med scroll/count af bytes.....
 

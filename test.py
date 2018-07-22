@@ -36,7 +36,7 @@ obj.frame.append([2, 13,  'Any other command cancels request', 11])
 obj.frame.append([2, 14,  'Any other command cancels request', 12])
 obj.frame.append([2, 15,  'Any other command cancels request', 13])
 obj.frame.append([2, 16,  'Any other command cancels request', 14])
-obj.frame.append([2, 17,  'Any other command cancels request', 15])
+#obj.frame.append([2, 37,  'Any other command cancels request', 15])
 
 # add Menu
 obj.createMenu(20, 10, ["First", "Second", "Third", "Fourthflippingfourth"], obj.color['red'], True)
