@@ -19,22 +19,23 @@ obj.addLabel(0, 0, 'Movie Files', 6)
 obj.addLabel(50., 0, 'Actions', 6)
 
 # add Menu
-obj.addTextbox(50., 2, ["Text1", "Text2", "Text3", "Text4", "Text5", "Text6"], obj.color['green'], False)
+textBoxID = obj.addTextbox(50., 2, ["Text1", "Text2", "127.0.0.1", "2a80:1093:2ab1:12a1:1231:42bc", "False", "Text6"], obj.color['cyan'], False)
 obj.addMenu(0, 2, ["First", "Second", "Third", "Fourthflippingfourth", "Motherflippin' fifth", "Sixth"], obj.color['orange'], False)
 obj.activeObject = 3
-
-#obj.terminate()
-#print(obj.objects)
-#ys.exit()
 
 # loop and test keys
 while obj.running:
 	obj.render()		# update screen rendering
 	keyPressed = obj.getInput()
-
-
+	# handle unknown keystrokes
+	if type(keyPressed) is list:
+		if keyPressed == [10]:	# KEY_ENTER
+			yPosition = obj.objects[obj.activeObject].pointer.get()
+			textToEdit = obj.objects[textBoxID].content[yPosition]
+			editedText = obj.textEditor(50., yPosition + 3, textToEdit, 2)
+			obj.objects[textBoxID].content[yPosition] = editedText
 obj.terminate()
-sys.exit('\n Program terminated normally...\n')
+print('return value')
 
 
 

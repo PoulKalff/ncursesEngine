@@ -116,64 +116,6 @@ class Label:
 		self.visible = True
 
 
-class TextEditor:
-	""" Editor, edits a line of text """
-
-	returnString = None
-
-	def __init__(self, screen, xPos, yPos, eString, color):
-		pointer = RangeIterator(len(eString) - 1, False)
-		keyPressed = ''
-		editorRunning = True
-		stringSliced = [[], [], []]
-		screen.addstr(yPos, xPos, eString, curses.color_pair(2))     # overwrite line to edit
-		while editorRunning:
-			if len(eString) > 0:
-				stringSliced[0] = eString[:pointer.get()]
-				stringSliced[1] = eString[pointer.get()]
-				stringSliced[2] = eString[pointer.get() + 1:]
-			screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(color))
-			screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(200))
-			screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(color))
-			screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(3))    # overwrite last char
-# Debug:
-			screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
-			screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
-			screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
-# Debug:
-			screen.refresh()
-			keyPressed = screen.getch()
-			if keyPressed == 261:            # Cursor RIGHT
-				if len(stringSliced[2]) > 0:
-					pointer.inc()
-			elif keyPressed == 260:          # Cursor LEFT
-				if len(stringSliced[0]) > 0:
-					pointer.dec()
-			elif keyPressed == 10:           # Return (Select)
-				self.returnString = eString.strip()
-				editorRunning = False
-			elif keyPressed == 330:          # Del
-				if stringSliced[2] != ' ':
-					stringSliced[1] = stringSliced[2][:1]
-					stringSliced[2] = stringSliced[2][1:]
-					if stringSliced[2] == '':
-						stringSliced[2] = ' '
-				elif stringSliced[2] == ' ':
-				   stringSliced[1] = ''
-				   stringSliced[2] = ' '
-			elif keyPressed == 263:          # Backspace
-				stringSliced[0] = stringSliced[0][:-1]
-				pointer.decMax()
-			elif keyPressed < 256 and chr(keyPressed) in ',./-abcdefghijklmnopqrstuvwqyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ':
-				stringSliced[1] = chr(keyPressed) + stringSliced[1]
-				pointer.incMax()
-			if type(stringSliced) == list:
-				eString = ''.join(stringSliced)
-
-	def __repr__(self):
-		return repr(self.returnString)
-
-
 class NCEngine:
 	""" Presents the screen of a program """
 
@@ -200,6 +142,142 @@ class NCEngine:
 		for i in range(0, curses.COLORS):
 			curses.init_pair(i, i, -1)
 		curses.init_pair(200, curses.COLOR_RED, curses.COLOR_WHITE)			# init 256 colors + 1 special
+		self.generateID = self.idGenerator()
+
+
+	def idGenerator(self):
+		n = 0
+		while True:
+			yield n
+			n += 1
+
+
+	def getID(self):
+		""" Get the next sequential ID """
+		return next(self.generateID)
+
+
+	def boolEditor(self, value, xPos, yPos):
+		""" Edits True/False """
+		bValue = 0 if value == 'False' else 1
+		pointer = FlipSwitch(bValue)
+		teRunning = True
+		height, width = self.parent.screen.getmaxyx()
+		self.screen.addstr(height - 1, 0, 'UP/DOWN changes state, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		while teRunning:
+			self.screen.addstr(yPos + 4, xPos + 10, pointer.getString() + ' ', curses.color_pair(5))
+			self.screen.refresh()
+			keyPressed = self.screen.getch()
+			if keyPressed == 259 or keyPressed == 258:             # Cursor UP / Down
+				pointer.flip()
+			elif keyPressed == 260:           # Cursor LEFT
+				teRunning = False
+			elif keyPressed == 10:           # Return (Select)
+				teRunning = False
+		strValue = pointer.getString()
+		returnValue = strValue + ' ' if len(strValue) == 4 else strValue
+		return returnValue
+
+
+	def digitsEditor(self, eString, xPos, yPos):
+		""" Edits digits """
+		pointer = RangeIterator(len(eString) - 1, False)
+		keyPressed = ''
+		teRunning = True
+		height, width = self.parent.screen.getmaxyx()
+		self.screen.addstr(height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		while teRunning:
+			stringSliced = [eString[:pointer.get()], eString[pointer.get()], eString[pointer.get() + 1:]]
+			self.screen.addstr(yPos + 4, xPos + 10, stringSliced[0], curses.color_pair(5))
+			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]), stringSliced[1], curses.color_pair(1))
+			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(5))
+			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(0))    # overwrite last char
+			#self.screen.addstr(yPos + 6, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed), curses.color_pair(0))      # Message output
+			self.screen.refresh()
+			keyPressed = self.screen.getch()
+			focusedChar = int(stringSliced[1])
+			if keyPressed == 259:             # Cursor UP
+				if focusedChar < 9:
+					stringSliced[1] = str(focusedChar + 1)
+			elif keyPressed == 258:           # Cursor DOWN
+				if focusedChar > 0:
+					stringSliced[1] = str(focusedChar - 1)
+			if keyPressed == 261:           # Cursor RIGHT
+				pointer.inc()
+				if len(stringSliced[2]) > 0 and stringSliced[2][0] == ':':
+					pointer.inc()
+			elif keyPressed == 260:           # Cursor LEFT
+				if pointer.get() == 0:
+					returnFile = stringSliced[0] + stringSliced[1] + stringSliced[2]
+					teRunning = False
+				else:
+					pointer.dec()
+					if len(stringSliced[0]) > 0 and stringSliced[0][-1] == ':':
+						pointer.dec()
+			elif keyPressed == 10:           # Return (Select)
+				returnFile = stringSliced[0] + stringSliced[1] + stringSliced[2]
+				teRunning = False
+			elif keyPressed > 47 and keyPressed < 58:   # 0-9
+				stringSliced[1] = chr(keyPressed)
+				pointer.inc()
+				if len(stringSliced[2]) > 0 and stringSliced[2][0] ==  ':':
+					pointer.inc()
+			eString = stringSliced[0] + stringSliced[1] + stringSliced[2]
+		return returnFile
+
+
+
+	def textEditor(self, x, y, eString, color):
+		""" Edits a line of text """
+		pointer = RangeIterator(len(eString) - 1, False)
+		keyPressed = ''
+		editorRunning = True
+		stringSliced = [[], [], []]
+		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
+		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
+		self.screen.addstr(yPos, xPos, eString, curses.color_pair(2))     # overwrite line to edit
+		while editorRunning:
+			if len(eString) > 0:
+				stringSliced[0] = eString[:pointer.get()]
+				stringSliced[1] = eString[pointer.get()]
+				stringSliced[2] = eString[pointer.get() + 1:]
+			self.screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(color))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(200))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(color))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(3))    # overwrite last char
+# Debug:
+			self.screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
+			self.screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
+			self.screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
+# Debug:
+			self.screen.refresh()
+			keyPressed = self.screen.getch()
+			if keyPressed == 261:            # Cursor RIGHT
+				if len(stringSliced[2]) > 0:
+					pointer.inc()
+			elif keyPressed == 260:          # Cursor LEFT
+				if len(stringSliced[0]) > 0:
+					pointer.dec()
+			elif keyPressed == 10:           # Return (Select)
+				editorRunning = False
+				return eString.strip()
+			elif keyPressed == 330:          # Del
+				if stringSliced[2] != ' ':
+					stringSliced[1] = stringSliced[2][:1]
+					stringSliced[2] = stringSliced[2][1:]
+					if stringSliced[2] == '':
+						stringSliced[2] = ' '
+				elif stringSliced[2] == ' ':
+				   stringSliced[1] = ''
+				   stringSliced[2] = ' '
+			elif keyPressed == 263:          # Backspace
+				stringSliced[0] = stringSliced[0][:-1]
+				pointer.decMax()
+			elif keyPressed < 256 and chr(keyPressed) in ',./-abcdefghijklmnopqrstuvwqyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ':
+				stringSliced[1] = chr(keyPressed) + stringSliced[1]
+				pointer.incMax()
+			if type(stringSliced) == list:
+				eString = ''.join(stringSliced)
 
 
 	def showColors(self):
@@ -299,6 +377,7 @@ class NCEngine:
 		""" Retrieve input and handle internally if understood, else return to calling program """
 		keyPressed = self.screen.getch()
 		if keyPressed == 113:		# <escape>
+			self.terminate()
 			self.running = False
 		elif keyPressed == 259:		# KEY_UP
 			self.objects[self.activeObject].pointer.dec()
@@ -308,23 +387,8 @@ class NCEngine:
 			pass
 		elif keyPressed == 261:		# KEY_RIGHT
 			pass
-		elif keyPressed == 343 or keyPressed == 10 or keyPressed == 13:			# KEY_ENTER / ? / ?
-			# Start an editor
-			yPosition = self.objects[self.activeObject].pointer.get()
-
-
-
-			self.terminate()
-			sys.exit('killed for DEV ' + str(position))
-
-
-			x = TextEditor(self.screen, 10, 10, 'A string of text to edit', 2)
-
-
 		else:
-			return keyPressed
-
-
+			return [keyPressed]
 
 
 	def terminate(self):
@@ -333,6 +397,9 @@ class NCEngine:
 		curses.echo()
 		curses.nocbreak()
 		curses.endwin()
+
+
+
 
 
 # --- Setter Functions ----------------------------------------------------------------------------
@@ -365,16 +432,19 @@ class NCEngine:
 	def addLabel(self, x, y, item, color):
 		maxLength = len(item)
 		self.objects.append(Label(x, y, [item], color, maxLength))
+		return len(self.objects) - 1
 
 
 	def addTextbox(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		self.objects.append(Textbox(x, y, items, color, maxLength, frame))
+		return len(self.objects) - 1 
 
 
 	def addMenu(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		self.objects.append(Menu(x, y, items, color, maxLength, frame))
+		return len(self.objects) - 1
 
 
 
@@ -382,10 +452,12 @@ class NCEngine:
 
 # --- TODO ---------------------------------------------------------------------------------------
 # - BUG 	: Stadigt problemer med scroll/count af bytes.....
-# - BUG 	: Screen dies if too small for objects.....
 # - BUG 	: Rod med menu-farven, 300 kan ikke bruges
+# - BUG 	: obecjt ID er noget rod.... passer ikke hvis objekter fjernes!
+
 
 # - FEATURE : lave et MIN, så screen ikke renderes hvis objects ikke kan vaere paa skaermen
 # - FEATURE : Lave properties til alt, som kan indstilles
-
+# - FEATURE : Test digitsEditor
+# - FEATURE : Test boolEditor
 
