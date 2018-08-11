@@ -33,7 +33,7 @@ class FlipSwitch():
 
 
 class RangeIterator():
-	# (NEW) Represents a range of INTs from 0 -> X
+	# (v3) Represents a range of INTs from 0 -> X
 
 	def __init__(self, Ind, loop=True):
 		self.current = 0
@@ -48,7 +48,20 @@ class RangeIterator():
 		self.current -= count
 		self._test()
 
+	def incMax(self, count=1):
+		""" Increase both value and max valuse """
+		self.max += count
+		self.current += count
+		self._test()
+
+	def decMax(self, count=1):
+		""" Increase both value and max valuse """
+		self.max -= count
+		self.current -= count
+		self._test()
+
 	def _test(self):
+		self.max = 0 if self.max < 0 else self.max
 		if self.loop:
 			if self.current > self.max:
 				self.current -= self.max + 1
@@ -67,29 +80,98 @@ class RangeIterator():
 class Menu:
 	""" A menu where the user can choose between lines of text """
 
-	def __init__(self, xPos, yPos, items, color, mWidth, frame):
+	def __init__(self, xPos, yPos, content, color, mWidth, frame):
 		self.x = xPos
 		self.y = yPos
 		self.frame = frame
 		self.color = color
-		self.items = items
+		self.content = content
 		self.maxWidth = mWidth
 		self.visible = True
-		self.highlighted =  1
-		self.pointer = RangeIterator(len(items) - 1, False)
+		self.pointer = RangeIterator(len(content) - 1, False)
 
 
 class Textbox:
 	""" A collection of text-lines """
 
-	def __init__(self, xPos, yPos, items, color, mWidth, frame):
+	def __init__(self, xPos, yPos, content, color, mWidth, frame):
 		self.x = xPos
 		self.y = yPos
 		self.frame = frame
 		self.color = color
-		self.items = items
+		self.content = content
 		self.maxWidth = mWidth
 		self.visible = True
+
+
+class Label:
+	""" One simple text-line """
+
+	def __init__(self, xPos, yPos, content, color, mWidth):
+		self.x = xPos
+		self.y = yPos
+		self.color = color
+		self.content = content
+		self.maxWidth = mWidth
+		self.visible = True
+
+
+class TextEditor:
+	""" Editor, edits a line of text """
+
+	returnString = None
+
+	def __init__(self, screen, xPos, yPos, eString, color):
+		pointer = RangeIterator(len(eString) - 1, False)
+		keyPressed = ''
+		editorRunning = True
+		stringSliced = [[], [], []]
+		screen.addstr(yPos, xPos, eString, curses.color_pair(2))     # overwrite line to edit
+		while editorRunning:
+			if len(eString) > 0:
+				stringSliced[0] = eString[:pointer.get()]
+				stringSliced[1] = eString[pointer.get()]
+				stringSliced[2] = eString[pointer.get() + 1:]
+			screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(color))
+			screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(200))
+			screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(color))
+			screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(3))    # overwrite last char
+# Debug:
+			screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
+			screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
+			screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
+# Debug:
+			screen.refresh()
+			keyPressed = screen.getch()
+			if keyPressed == 261:            # Cursor RIGHT
+				if len(stringSliced[2]) > 0:
+					pointer.inc()
+			elif keyPressed == 260:          # Cursor LEFT
+				if len(stringSliced[0]) > 0:
+					pointer.dec()
+			elif keyPressed == 10:           # Return (Select)
+				self.returnString = eString.strip()
+				editorRunning = False
+			elif keyPressed == 330:          # Del
+				if stringSliced[2] != ' ':
+					stringSliced[1] = stringSliced[2][:1]
+					stringSliced[2] = stringSliced[2][1:]
+					if stringSliced[2] == '':
+						stringSliced[2] = ' '
+				elif stringSliced[2] == ' ':
+				   stringSliced[1] = ''
+				   stringSliced[2] = ' '
+			elif keyPressed == 263:          # Backspace
+				stringSliced[0] = stringSliced[0][:-1]
+				pointer.decMax()
+			elif keyPressed < 256 and chr(keyPressed) in ',./-abcdefghijklmnopqrstuvwqyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ':
+				stringSliced[1] = chr(keyPressed) + stringSliced[1]
+				pointer.incMax()
+			if type(stringSliced) == list:
+				eString = ''.join(stringSliced)
+
+	def __repr__(self):
+		return repr(self.returnString)
 
 
 class NCEngine:
@@ -100,6 +182,7 @@ class NCEngine:
 	_borderColor = False	# no border drawn if no color is set
 	lines = []
 	objects = []
+	_activeObject = None
 	running = True
 
 
@@ -133,6 +216,9 @@ class NCEngine:
 
 	def render(self):
 		""" handles resize and displays the data in "data" """
+		if not self.activeObject:
+			self.terminate()
+			sys.exit('Cannot start program loop without active object. Please set .activeObject')
 		self._getSize()
 		if self.width > 20 and self.height > 20:
 			self.screen.clear()
@@ -157,17 +243,18 @@ class NCEngine:
 			posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
 			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
-			if o.frame:
-				if o.maxWidth + o.x < self.width:
-					for nr, item in enumerate(o.items):
-						self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
-				self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
-				self.screen.addstr(o.y + len(o.items) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
+			if type(o) is not Label:
+				if o.frame:
+					if o.maxWidth + o.x < self.width:
+						for nr, item in enumerate(o.content):
+							self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
+					self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
+					self.screen.addstr(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
 			# text
-			for nr, item in enumerate(o.items):
+			for nr, item in enumerate(o.content):
 				itemColor = curses.color_pair(o.color)
 				if type(o) is Menu:
-					if nr == o.highlighted - 1:
+					if nr == o.pointer.get():
 						itemColor = curses.color_pair(200)
 				self.screen.addstr(posY + nr + 1, posX + 2, item, itemColor)
 
@@ -209,9 +296,35 @@ class NCEngine:
 
 
 	def getInput(self):
-		""" Retrieve input from the keyboard and return those"""
+		""" Retrieve input and handle internally if understood, else return to calling program """
 		keyPressed = self.screen.getch()
-		return keyPressed
+		if keyPressed == 113:		# <escape>
+			self.running = False
+		elif keyPressed == 259:		# KEY_UP
+			self.objects[self.activeObject].pointer.dec()
+		elif keyPressed == 258:		# KEY_DOWN
+			self.objects[self.activeObject].pointer.inc()
+		elif keyPressed == 260:		# KEY_LEFT
+			pass
+		elif keyPressed == 261:		# KEY_RIGHT
+			pass
+		elif keyPressed == 343 or keyPressed == 10 or keyPressed == 13:			# KEY_ENTER / ? / ?
+			# Start an editor
+			yPosition = self.objects[self.activeObject].pointer.get()
+
+
+
+			self.terminate()
+			sys.exit('killed for DEV ' + str(position))
+
+
+			x = TextEditor(self.screen, 10, 10, 'A string of text to edit', 2)
+
+
+		else:
+			return keyPressed
+
+
 
 
 	def terminate(self):
@@ -234,13 +347,24 @@ class NCEngine:
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
 
+	@property
+	def activeObject(self):
+		return self._activeObject
+
+	@activeObject.setter
+	def activeObject(self, val):
+		self._activeObject = val if val < len(self.objects) else None
+		if not self._activeObject:
+			sys.exit('No object number ' + str(val))
+
+
 	def addGridLine(self, type, coordinate):
 		self.lines.append([type, coordinate])
 
 
-	def addLabel(self, x, y, item, color, frame):
+	def addLabel(self, x, y, item, color):
 		maxLength = len(item)
-		self.objects.append(Textbox(x, y, [item], color, maxLength, frame))
+		self.objects.append(Label(x, y, [item], color, maxLength))
 
 
 	def addTextbox(self, x, y, items, color, frame):
