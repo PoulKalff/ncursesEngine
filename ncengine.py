@@ -65,7 +65,7 @@ class RangeIterator():
 
 
 class Menu:
-	""" A menu object """
+	""" A menu where the user can choose between lines of text """
 
 	def __init__(self, xPos, yPos, items, color, mWidth, frame):
 		self.x = xPos
@@ -74,24 +74,33 @@ class Menu:
 		self.color = color
 		self.items = items
 		self.maxWidth = mWidth
-		self.highlighted =  None
+		self.visible = True
+		self.highlighted =  1
 		self.pointer = RangeIterator(len(items) - 1, False)
 
-	def getCoords(self):
-		return (self.x, self.y)
 
+class Textbox:
+	""" A collection of text-lines """
+
+	def __init__(self, xPos, yPos, items, color, mWidth, frame):
+		self.x = xPos
+		self.y = yPos
+		self.frame = frame
+		self.color = color
+		self.items = items
+		self.maxWidth = mWidth
+		self.visible = True
 
 
 class NCEngine:
 	""" Presents the screen of a program """
 
-	objects = []
-	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
-	border = False
-	_borderColor = 0
 	status = 'Init'
+	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
+	_borderColor = False	# no border drawn if no color is set
 	lines = []
-	topMenus = []
+	objects = []
+	running = True
 
 
 	def __init__(self):
@@ -99,7 +108,7 @@ class NCEngine:
 		self.screen.border(0)
 		self.screen.keypad(1)
 		self.screen.scrollok(0) 
-		self.getSize()
+		self._getSize()
 		curses.noecho()
 		curses.curs_set(0)
 		# init colors
@@ -107,7 +116,7 @@ class NCEngine:
 		curses.use_default_colors()
 		for i in range(0, curses.COLORS):
 			curses.init_pair(i, i, -1)
-		curses.init_pair(300, curses.COLOR_RED, curses.COLOR_WHITE)			# init 256 colors + 1 special
+		curses.init_pair(200, curses.COLOR_RED, curses.COLOR_WHITE)			# init 256 colors + 1 special
 
 
 	def showColors(self):
@@ -115,52 +124,52 @@ class NCEngine:
 		sys.exit('notImplemented')
 
 
-	def getSize(self):
+	def _getSize(self):
 		""" Update height/width/center """
 		self.height, self.width = self.screen.getmaxyx()
 		self.hcenter = int((self.width - 1) / 2)
 		self.vcenter = (self.height - 1) / 2
 
 
-	def createMenu(self, posX, posY, items, color, frame = True):
-		""" Creates the data used for painting a menu """
-		self.getSize()
-		maxLength = len(max(items, key=lambda coll: len(coll)))
-		self.objects.append(Menu(posX, posY, items, color, maxLength, frame))
-
-
 	def render(self):
 		""" handles resize and displays the data in "data" """
-		self.getSize()
-		self.screen.clear()
-		# check if resized
-		if curses.is_term_resized(self.height, self.width):
-			curses.resizeterm(self.height, self.width)
-		# render border
-		if self.border:
-			self.drawBorder()
-		# render lines
-		self.drawLines()
-		# render status
-		self.screen.addstr(self.height - 1, 1, self.status , curses.color_pair(self.borderColor))
-		# render topMenus
-		for nr, m in enumerate(self.topMenus):
-			screenPartWidth = self.width / len(self.topMenus)
-			self.screen.addstr(1, int(nr * screenPartWidth + 2), m , curses.color_pair(self.borderColor))
-		# render each object
-		for menu in self.objects:
-			maxHeight = len(menu.items)
+		self._getSize()
+		if self.width > 20 and self.height > 20:
+			self.screen.clear()
+			# check if resized
+			if curses.is_term_resized(self.height, self.width):
+				curses.resizeterm(self.height, self.width)
+			# render border
+			if self._borderColor:
+				self.drawBorder()
+			# render lines
+			self.drawLines()
+			# render status
+			self.screen.addstr(self.height - 1, 1, self.status , curses.color_pair(1))
+			# render objects
+			self.drawObjects()
+			self.screen.refresh()
+
+
+	def drawObjects(self):
+		""" Draw all objects in object collection """
+		for o in self.objects:
+			posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
+			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
-			if menu.frame:
-				if menu.maxWidth + menu.x < self.width:
-					for nr, item in enumerate(menu.items):
-						self.screen.addstr(menu.y + nr + 1, menu.x, '│ ' + (menu.maxWidth * ' ')  + ' │', curses.color_pair(menu.color))
-				self.screen.addstr(menu.y, menu.x, '╭─' + ('─' * menu.maxWidth) + '─╮', curses.color_pair(menu.color))						# Top
-				self.screen.addstr(menu.y + maxHeight + 1, menu.x, '└─' + ('─' * menu.maxWidth) + '─╯', curses.color_pair(menu.color))		# Bottom
+			if o.frame:
+				if o.maxWidth + o.x < self.width:
+					for nr, item in enumerate(o.items):
+						self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
+				self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
+				self.screen.addstr(o.y + len(o.items) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
 			# text
-			for nr, item in enumerate(menu.items):
-				self.screen.addstr(menu.y + nr + 1, menu.x + 2, item, curses.color_pair(menu.color))
-		self.screen.refresh()
+			for nr, item in enumerate(o.items):
+				itemColor = curses.color_pair(o.color)
+				if type(o) is Menu:
+					if nr == o.highlighted - 1:
+						itemColor = curses.color_pair(200)
+				self.screen.addstr(posY + nr + 1, posX + 2, item, itemColor)
 
 
 	def drawLines(self):
@@ -225,11 +234,34 @@ class NCEngine:
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
 
+	def addGridLine(self, type, coordinate):
+		self.lines.append([type, coordinate])
+
+
+	def addLabel(self, x, y, item, color, frame):
+		maxLength = len(item)
+		self.objects.append(Textbox(x, y, [item], color, maxLength, frame))
+
+
+	def addTextbox(self, x, y, items, color, frame):
+		maxLength = len(max(items, key=lambda coll: len(coll)))
+		self.objects.append(Textbox(x, y, items, color, maxLength, frame))
+
+
+	def addMenu(self, x, y, items, color, frame):
+		maxLength = len(max(items, key=lambda coll: len(coll)))
+		self.objects.append(Menu(x, y, items, color, maxLength, frame))
+
+
 
 
 
 # --- TODO ---------------------------------------------------------------------------------------
 # - BUG 	: Stadigt problemer med scroll/count af bytes.....
-# - FEATURE : Lav andre objecter end menu (textcollection, og ??), og lad dem arve fra et standard-object
+# - BUG 	: Screen dies if too small for objects.....
+# - BUG 	: Rod med menu-farven, 300 kan ikke bruges
+
 # - FEATURE : lave et MIN, så screen ikke renderes hvis objects ikke kan vaere paa skaermen
 # - FEATURE : Lave properties til alt, som kan indstilles
+
+
