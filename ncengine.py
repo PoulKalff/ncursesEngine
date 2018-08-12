@@ -123,7 +123,7 @@ class NCEngine:
 	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
 	_borderColor = False	# no border drawn if no color is set
 	lines = []
-	objects = []
+	objects = {}
 	_activeObject = None
 	running = True
 
@@ -142,7 +142,11 @@ class NCEngine:
 		for i in range(0, curses.COLORS):
 			curses.init_pair(i, i, -1)
 		curses.init_pair(200, curses.COLOR_RED, curses.COLOR_WHITE)			# init 256 colors + 1 special
-		self.generateID = self.idGenerator()
+		self._generateID = self.idGenerator()
+
+
+	def getObject(self, ID):
+		return self.objects[ID]
 
 
 	def idGenerator(self):
@@ -152,9 +156,9 @@ class NCEngine:
 			n += 1
 
 
-	def getID(self):
+	def generateID(self):
 		""" Get the next sequential ID """
-		return next(self.generateID)
+		return next(self._generateID)
 
 
 	def boolEditor(self, value, xPos, yPos):
@@ -226,7 +230,6 @@ class NCEngine:
 		return returnFile
 
 
-
 	def textEditor(self, x, y, eString, color):
 		""" Edits a line of text """
 		pointer = RangeIterator(len(eString) - 1, False)
@@ -245,11 +248,9 @@ class NCEngine:
 			self.screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(200))
 			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(color))
 			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(3))    # overwrite last char
-# Debug:
-			self.screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
-			self.screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
-			self.screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
-# Debug:
+# DEBUG		self.screen.addstr(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , curses.color_pair(4))
+# DEBUG		self.screen.addstr(21, 2, str(stringSliced) + ' ' , curses.color_pair(4))
+# DEBUG		self.screen.addstr(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', curses.color_pair(4))
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			if keyPressed == 261:            # Cursor RIGHT
@@ -317,7 +318,7 @@ class NCEngine:
 
 	def drawObjects(self):
 		""" Draw all objects in object collection """
-		for o in self.objects:
+		for key, o in self.objects.items():
 			posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
 			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
@@ -399,9 +400,6 @@ class NCEngine:
 		curses.endwin()
 
 
-
-
-
 # --- Setter Functions ----------------------------------------------------------------------------
 
 
@@ -431,33 +429,35 @@ class NCEngine:
 
 	def addLabel(self, x, y, item, color):
 		maxLength = len(item)
-		self.objects.append(Label(x, y, [item], color, maxLength))
-		return len(self.objects) - 1
+		id = self.generateID()
+		self.objects[id] = Label(x, y, [item], color, maxLength)
+		return id
 
 
 	def addTextbox(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
-		self.objects.append(Textbox(x, y, items, color, maxLength, frame))
-		return len(self.objects) - 1 
+		id = self.generateID()
+		self.objects[id] =  Textbox(x, y, items, color, maxLength, frame)
+		return id
 
 
 	def addMenu(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
-		self.objects.append(Menu(x, y, items, color, maxLength, frame))
-		return len(self.objects) - 1
+		id = self.generateID()
+		self.objects[id] = Menu(x, y, items, color, maxLength, frame)
+		return id
 
 
 
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - BUG 	: Stadigt problemer med scroll/count af bytes.....
+# - BUG 	: Stadigt problemer med scroll/count af bytes..... (??)
 # - BUG 	: Rod med menu-farven, 300 kan ikke bruges
-# - BUG 	: obecjt ID er noget rod.... passer ikke hvis objekter fjernes!
 
 
 # - FEATURE : lave et MIN, så screen ikke renderes hvis objects ikke kan vaere paa skaermen
-# - FEATURE : Lave properties til alt, som kan indstilles
+# - FEATURE : lave properties til alt, som kan indstilles
 # - FEATURE : Test digitsEditor
 # - FEATURE : Test boolEditor
 

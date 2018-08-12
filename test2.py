@@ -6,6 +6,16 @@ import sys
 import locale
 from ncengine import NCEngine
 
+# --- Variables -----------------------------------------------------------------------------------
+
+values = {	"First" 				: "Text1", 
+			"Second" 				: "Text2", 
+			"Third" 				: "127.0.0.1", 
+			"Fourthflippingfourth" 	: "2a80:1093:2ab1:12a1:1231:42bc", 
+			"Motherflippin' fifth" 	: "False", 
+			"Sixth" 				: "Text6"
+		 }
+
 # --- Main  ---------------------------------------------------------------------------------------
 
 obj = NCEngine()
@@ -19,9 +29,9 @@ obj.addLabel(0, 0, 'Movie Files', 6)
 obj.addLabel(50., 0, 'Actions', 6)
 
 # add Menu
-textBoxID = obj.addTextbox(50., 2, ["Text1", "Text2", "127.0.0.1", "2a80:1093:2ab1:12a1:1231:42bc", "False", "Text6"], obj.color['cyan'], False)
-obj.addMenu(0, 2, ["First", "Second", "Third", "Fourthflippingfourth", "Motherflippin' fifth", "Sixth"], obj.color['orange'], False)
-obj.activeObject = 3
+menuID = obj.addMenu(0, 2, list(values.keys()), obj.color['orange'], False)
+textBoxID = obj.addTextbox(50., 2, list(values.values()), obj.color['cyan'], False)
+obj.activeObject = menuID
 
 # loop and test keys
 while obj.running:
@@ -30,12 +40,14 @@ while obj.running:
 	# handle unknown keystrokes
 	if type(keyPressed) is list:
 		if keyPressed == [10]:	# KEY_ENTER
-			yPosition = obj.objects[obj.activeObject].pointer.get()
-			textToEdit = obj.objects[textBoxID].content[yPosition]
-			editedText = obj.textEditor(50., yPosition + 3, textToEdit, 2)
-			obj.objects[textBoxID].content[yPosition] = editedText
-obj.terminate()
-print('return value')
+			y = obj.getObject(menuID).pointer.get()
+			textToEdit = obj.getObject(textBoxID).content[y]
+			editedText = obj.textEditor(50., y + 3, textToEdit, 2)
+			obj.getObject(textBoxID).content[y] = editedText
+			values[y] = editedText
+
+
+print(values)
 
 
 
