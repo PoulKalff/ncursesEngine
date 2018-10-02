@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os
@@ -8,11 +8,11 @@ from ncengine import NCEngine
 
 # --- Variables -----------------------------------------------------------------------------------
 
-values = {	"First" 				: "Text1", 
-			"Second" 				: "Text2", 
-			"Third" 				: "127.0.0.1", 
-			"Fourthflippingfourth" 	: "2a80:1093:2ab1:12a1:1231:42bc", 
-			"Motherflippin' fifth" 	: "False", 
+values = {		"First" 				: "Text1",
+			"Second" 				: "Text2",
+			"Third" 				: "127.0.0.1",
+			"Fourthflippingfourth" 			: "2a80:1093:2ab1:12a1:1231:42bc",
+			"Motherflippin' fifth" 			: "False",
 			"Sixth" 				: "Text6"
 		 }
 
@@ -46,14 +46,12 @@ while obj.running:
 			obj.getObject(textBoxID).content[y] = editedText
 			values[y] = editedText
 
-
 print(values)
-
-
-
 
 
 
 # --- TODO ---------------------------------------------------------------------------------------
 # -
+
+
 

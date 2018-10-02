@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import re
@@ -110,6 +109,7 @@ class Label:
 	def __init__(self, xPos, yPos, content, color, mWidth):
 		self.x = xPos
 		self.y = yPos
+		self.frame = False
 		self.color = color
 		self.content = content
 		self.maxWidth = mWidth
@@ -132,7 +132,7 @@ class NCEngine:
 		self.screen = curses.initscr()
 		self.screen.border(0)
 		self.screen.keypad(1)
-		self.screen.scrollok(0) 
+		self.screen.scrollok(0)
 		self._getSize()
 		curses.noecho()
 		curses.curs_set(0)
@@ -322,13 +322,12 @@ class NCEngine:
 			posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
 			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
-			if type(o) is not Label:
-				if o.frame:
-					if o.maxWidth + o.x < self.width:
-						for nr, item in enumerate(o.content):
-							self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
-					self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
-					self.screen.addstr(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
+			if o.frame:
+				if o.maxWidth + o.x < self.width:
+					for nr, item in enumerate(o.content):
+						self.screen.addstr(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', curses.color_pair(o.color))
+				self.screen.addstr(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', curses.color_pair(o.color))						# Top
+				self.screen.addstr(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', curses.color_pair(o.color))		# Bottom
 			# text
 			for nr, item in enumerate(o.content):
 				itemColor = curses.color_pair(o.color)
@@ -346,32 +345,32 @@ class NCEngine:
 				position = int((l[1] * self.width / 100) if type(l[1]) == float else l[1])
 				intersections[0].append(position)
 				for yPos in range(1, self.height - 2):
-					self.screen.addstr(yPos, position, '│', curses.color_pair(self.borderColor))
+					self.screen.addstr(yPos, position, '│', curses.color_pair(self._borderColor))
 				# endpoints
-				self.screen.addstr(0, position, '┬', curses.color_pair(self.borderColor))
-				self.screen.addstr(self.height - 2, position, '┴', curses.color_pair(self.borderColor))
+				self.screen.addstr(0, position, '┬', curses.color_pair(self._borderColor))
+				self.screen.addstr(self.height - 2, position, '┴', curses.color_pair(self._borderColor))
 			elif l[0] == 'h':
 				position = int((l[1] * self.height / 100) - 1 if type(l[1]) == float else l[1])
 				intersections[1].append(position)
-				self.screen.addstr(position, 1, '─' * (self.width - 2), curses.color_pair(self.borderColor))
+				self.screen.addstr(position, 1, '─' * (self.width - 2), curses.color_pair(self._borderColor))
 				# endpoints
-				self.screen.addstr(position, 0, '├', curses.color_pair(self.borderColor))
-				self.screen.addstr(position, self.width - 1, '┤', curses.color_pair(self.borderColor))
+				self.screen.addstr(position, 0, '├', curses.color_pair(self._borderColor))
+				self.screen.addstr(position, self.width - 1, '┤', curses.color_pair(self._borderColor))
 		# draw intersections
 		for x in intersections[1]:
 			for y in intersections[0]:
-				self.screen.addstr(x, y, '┼', curses.color_pair(self.borderColor))
+				self.screen.addstr(x, y, '┼', curses.color_pair(self._borderColor))
 
 
 	def drawBorder(self):
 		""" Draw the staic border of the screen """
 		# horizontal lines
-		self.screen.addstr(0, 0, '╭' + '─' * (self.width - 2) + '╮', curses.color_pair(self.borderColor))						# Top
-		self.screen.addstr(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', curses.color_pair(self.borderColor))			# Bottom
+		self.screen.addstr(0, 0, '╭' + '─' * (self.width - 2) + '╮', curses.color_pair(self._borderColor))				# Top
+		self.screen.addstr(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', curses.color_pair(self._borderColor))			# Bottom
 		# vertical lines
 		for yPos in range(1, self.height - 2):
-			self.screen.addstr(yPos, 0, '│', curses.color_pair(self.borderColor))
-			self.screen.addstr(yPos, self.width - 1, '│', curses.color_pair(self.borderColor))
+			self.screen.addstr(yPos, 0, '│', curses.color_pair(self._borderColor))
+			self.screen.addstr(yPos, self.width - 1, '│', curses.color_pair(self._borderColor))
 
 
 	def getInput(self):
@@ -411,7 +410,6 @@ class NCEngine:
 	def borderColor(self, val):
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
-
 	@property
 	def activeObject(self):
 		return self._activeObject
@@ -448,6 +446,11 @@ class NCEngine:
 		return id
 
 
+# --- Main ---------------------------------------------------------------------------------------
+
+if sys.version_info < (3, 0):
+    sys.stdout.write("Sorry, requires Python 3.x\n")
+    sys.exit(1)
 
 
 
