@@ -119,12 +119,12 @@ class Label:
 class NCEngine:
 	""" Presents the screen of a program """
 
-	status = 'Init'
 	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
+	_status = 'Init'
 	_borderColor = False	# no border drawn if no color is set
 	lines = []
 	objects = {}
-	_activeObject = None
+	_activeObjectNo = None
 	running = True
 
 
@@ -145,9 +145,11 @@ class NCEngine:
 		self._generateID = self.idGenerator()
 
 
-	def getObject(self, ID):
-		return self.objects[ID]
-
+	def _getSize(self):
+		""" Update height/width/center """
+		self.height, self.width = self.screen.getmaxyx()
+		self.hcenter = int((self.width - 1) / 2)
+		self.vcenter = (self.height - 1) / 2
 
 	def idGenerator(self):
 		n = 0
@@ -155,48 +157,28 @@ class NCEngine:
 			yield n
 			n += 1
 
-
 	def generateID(self):
 		""" Get the next sequential ID """
 		return next(self._generateID)
 
 
-	def boolEditor(self, value, xPos, yPos):
-		""" Edits True/False """
-		bValue = 0 if value == 'False' else 1
-		pointer = FlipSwitch(bValue)
-		teRunning = True
-		height, width = self.parent.screen.getmaxyx()
-		self.screen.addstr(height - 1, 0, 'UP/DOWN changes state, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
-		while teRunning:
-			self.screen.addstr(yPos + 4, xPos + 10, pointer.getString() + ' ', curses.color_pair(5))
-			self.screen.refresh()
-			keyPressed = self.screen.getch()
-			if keyPressed == 259 or keyPressed == 258:             # Cursor UP / Down
-				pointer.flip()
-			elif keyPressed == 260:           # Cursor LEFT
-				teRunning = False
-			elif keyPressed == 10:           # Return (Select)
-				teRunning = False
-		strValue = pointer.getString()
-		returnValue = strValue + ' ' if len(strValue) == 4 else strValue
-		return returnValue
-
-
-	def digitsEditor(self, eString, xPos, yPos):
+	def digitsEditor(self, x, y, eString, color):
 		""" Edits digits """
+		self._getSize()
+		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
+		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
 		pointer = RangeIterator(len(eString) - 1, False)
 		keyPressed = ''
 		teRunning = True
-		height, width = self.parent.screen.getmaxyx()
-		self.screen.addstr(height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		self.screen.addstr(self.height - 1, 0, 'UP/DOWN cycles digit, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		self.screen.refresh()
 		while teRunning:
 			stringSliced = [eString[:pointer.get()], eString[pointer.get()], eString[pointer.get() + 1:]]
-			self.screen.addstr(yPos + 4, xPos + 10, stringSliced[0], curses.color_pair(5))
-			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]), stringSliced[1], curses.color_pair(1))
-			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(5))
-			self.screen.addstr(yPos + 4, xPos + 10 + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(0))    # overwrite last char
-			#self.screen.addstr(yPos + 6, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed), curses.color_pair(0))      # Message output
+			self.screen.addstr(yPos, xPos, stringSliced[0], curses.color_pair(5))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]), stringSliced[1], curses.color_pair(1))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], curses.color_pair(5))
+			self.screen.addstr(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', curses.color_pair(0))    # overwrite last char
+			#self.screen.addstr(yPos + 2, xPos + 10, str(stringSliced) + ' - ' + str(keyPressed), curses.color_pair(0))      # Message output
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			focusedChar = int(stringSliced[1])
@@ -230,15 +212,40 @@ class NCEngine:
 		return returnFile
 
 
+	def boolEditor(self, x, y, value, color):
+		""" Edits True/False """
+		bValue = 0 if value == 'False' else 1
+		pointer = FlipSwitch(bValue)
+		self._getSize()
+		self.screen.addstr(self.height - 9, 0, 'UP/DOWN changes state, ENTER accepts changes', curses.color_pair(6))    # Overwrite Status
+		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
+		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
+		teRunning = True
+		while teRunning:
+			self.screen.addstr(yPos, xPos, pointer.getString() + ' ', curses.color_pair(color))
+			self.screen.refresh()
+			keyPressed = self.screen.getch()
+			if keyPressed == 259 or keyPressed == 258:             # Cursor UP / Down
+				pointer.flip()
+			elif keyPressed == 260:           # Cursor LEFT
+				teRunning = False
+			elif keyPressed == 10:           # Return (Select)
+				teRunning = False
+		strValue = pointer.getString()
+		returnValue = strValue + ' ' if len(strValue) == 4 else strValue
+		return returnValue
+
+
 	def textEditor(self, x, y, eString, color):
 		""" Edits a line of text """
 		pointer = RangeIterator(len(eString) - 1, False)
 		keyPressed = ''
-		editorRunning = True
 		stringSliced = [[], [], []]
+		self._getSize()
 		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
 		yPos = int((y * self.height / 100) - 1 if type(y) == float else y)
 		self.screen.addstr(yPos, xPos, eString, curses.color_pair(2))     # overwrite line to edit
+		editorRunning = True
 		while editorRunning:
 			if len(eString) > 0:
 				stringSliced[0] = eString[:pointer.get()]
@@ -286,21 +293,16 @@ class NCEngine:
 		sys.exit('notImplemented')
 
 
-	def _getSize(self):
-		""" Update height/width/center """
-		self.height, self.width = self.screen.getmaxyx()
-		self.hcenter = int((self.width - 1) / 2)
-		self.vcenter = (self.height - 1) / 2
-
-
 	def render(self):
 		""" handles resize and displays the data in "data" """
 		if not self.activeObject:
 			self.terminate()
 			sys.exit('Cannot start program loop without active object. Please set .activeObject')
 		self._getSize()
-		if self.width > 20 and self.height > 20:
-			self.screen.clear()
+		self.screen.clear()
+		if self.width < 60 or self.height < 20:
+			self.screen.addstr(1, 1, "Windows too small to render!" , curses.color_pair(1))
+		else:
 			# check if resized
 			if curses.is_term_resized(self.height, self.width):
 				curses.resizeterm(self.height, self.width)
@@ -310,10 +312,10 @@ class NCEngine:
 			# render lines
 			self.drawLines()
 			# render status
-			self.screen.addstr(self.height - 1, 1, self.status , curses.color_pair(1))
+			self.screen.addstr(self.height - 1, 1, self._status , curses.color_pair(1))
 			# render objects
 			self.drawObjects()
-			self.screen.refresh()
+		self.screen.refresh()
 
 
 	def drawObjects(self):
@@ -380,15 +382,15 @@ class NCEngine:
 			self.terminate()
 			self.running = False
 		elif keyPressed == 259:		# KEY_UP
-			self.objects[self.activeObject].pointer.dec()
+			self.activeObject.pointer.dec()
 		elif keyPressed == 258:		# KEY_DOWN
-			self.objects[self.activeObject].pointer.inc()
+			self.activeObject.pointer.inc()
 		elif keyPressed == 260:		# KEY_LEFT
 			pass
 		elif keyPressed == 261:		# KEY_RIGHT
 			pass
 		else:
-			return [keyPressed]
+			return keyPressed
 
 
 	def terminate(self):
@@ -401,6 +403,9 @@ class NCEngine:
 
 # --- Setter Functions ----------------------------------------------------------------------------
 
+	@property
+	def pointer(self):
+		return self.objects[self._activeObjectNo].pointer.get()
 
 	@property
 	def borderColor(self):
@@ -412,18 +417,20 @@ class NCEngine:
 
 	@property
 	def activeObject(self):
-		return self._activeObject
+		return self.objects[self._activeObjectNo]
 
 	@activeObject.setter
 	def activeObject(self, val):
-		self._activeObject = val if val < len(self.objects) else None
-		if not self._activeObject:
+		self._activeObjectNo = val if val < len(self.objects) else None
+		if not self._activeObjectNo:
 			sys.exit('No object number ' + str(val))
 
+	@activeObject.setter
+	def status(self, val):
+		self._status = val
 
 	def addGridLine(self, type, coordinate):
 		self.lines.append([type, coordinate])
-
 
 	def addLabel(self, x, y, item, color):
 		maxLength = len(item)
@@ -431,13 +438,11 @@ class NCEngine:
 		self.objects[id] = Label(x, y, [item], color, maxLength)
 		return id
 
-
 	def addTextbox(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		id = self.generateID()
 		self.objects[id] =  Textbox(x, y, items, color, maxLength, frame)
 		return id
-
 
 	def addMenu(self, x, y, items, color, frame):
 		maxLength = len(max(items, key=lambda coll: len(coll)))
@@ -455,12 +460,16 @@ if sys.version_info < (3, 0):
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - BUG 	: Stadigt problemer med scroll/count af bytes..... (??)
-# - BUG 	: Rod med menu-farven, 300 kan ikke bruges
+# - BUG 	  : Stadigt problemer med scroll/count af bytes..... (??)
+# - BUG		  : Crasher stadigt hvis window bliver minimalt
+# - FEATURE	  : lave properties til alt, som kan indstilles
+# - DOKUMENTATION : Lav mindst simpel dokumentation af hver funktion
+# - Status mangler for alle editors ..... pånær digitseditor
+# - Status skal have en fast farve
+# - En form for funktion hvor man kan tilfoeje colour-init-pairs, ud over default......addColor(c1, c2='Black')
+# - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
+# - Hvad/hvordan skal pointeren defineres....? Der skal kun vaere EEN!
+# - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 
 
-# - FEATURE : lave et MIN, så screen ikke renderes hvis objects ikke kan vaere paa skaermen
-# - FEATURE : lave properties til alt, som kan indstilles
-# - FEATURE : Test digitsEditor
-# - FEATURE : Test boolEditor
 
