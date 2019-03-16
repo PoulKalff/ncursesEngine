@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import re
 import sys
 import curses
@@ -116,17 +117,32 @@ class SelectPath:
         else: return File(name)
 
 
+class nceLabel:
+	""" A shared object for menu, label and texbox """
 
-class nceObject:
-	""" A menu where the user can choose between lines of text """
-
-	def __init__(self, _type, _xPos, _yPos, _content, _color, _mWidth, _frame):
-		self.type = _type
+	def __init__(self, _xPos, _yPos, _text, _color, _mWidth, _relativeToCenter):
 		self.x = _xPos
 		self.y = _yPos
+		self.rtc = _relativeToCenter
+		self.color = _color
+		self.content = [[_text, _color]]
+		self.maxWidth = _mWidth
+		self.visible = True
+
+
+
+class nceTextBox:
+	""" A shared object for menu, label and texbox """
+
+	def __init__(self, _xPos, _yPos, _content, _color, _mWidth, _frame, _relativeToCenter):
+		self.x = _xPos
+		self.y = _yPos
+		self.rtc = _relativeToCenter
 		self.frame = _frame
 		self.color = _color
-		self.content = _content
+		self.content = []
+		for i in _content:
+			self.content.append([i, _color])
 		self.maxWidth = _mWidth
 		self.visible = True
 
@@ -136,12 +152,11 @@ class NCEngine:
 
 	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
 	_status = 'Init'
-	_borderColor = False	# no border drawn if no color is set
+	_borderColor = 0
 	lines = []
 	objects = {}
-	_activeObjectNo = None
 	running = True
-
+	screenBorder = False
 
 	def __init__(self):
 		self.screen = curses.initscr()
@@ -169,23 +184,7 @@ class NCEngine:
 		   self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
 		else:
 		   self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
-		self.screen.refresh()
 		return True
-
-
-	def logEntry(self, level, msg):
-		""" Tilfoejer entry til log-filen. Fejler SILENTLY hvis filen ikke kan oprettes (pga. manglende rettigheder). """
-		if not os.access('/var/log/movieTools.log', os.W_OK):
-			return 0
-		else:
-			logLevel = ['NONE', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-			ts = datetime.datetime.now().strftime('%Y-%m-%d|%H:%M:%S')
-			fh = open("/var/log/movieTools.log", "a")
-			if msg.endswith('started'):
-				fh.write('\n')
-			fh.write(ts + " " + logLevel[level] + " " + msg + "\n");
-			fh.close();
-			return 1;
 
 
 	def _getSize(self):
@@ -193,9 +192,10 @@ class NCEngine:
 		self.height, self.width = self.screen.getmaxyx()
 		self.hcenter = int((self.width - 1) / 2)
 		self.vcenter = (self.height - 1) / 2
+#		self.wts(self.height - 3, 0, str(self.hcenter), 6)	# Debug
 
 	def idGenerator(self):
-		n = 0
+		n = 1
 		while True:
 			yield n
 			n += 1
@@ -338,9 +338,6 @@ class NCEngine:
 
 	def render(self):
 		""" handles resize and displays the data in "data" """
-		if not self.activeObject:
-			self.terminate()
-			sys.exit('Cannot start program loop without active object. Please set .activeObject')
 		self._getSize()
 		self.screen.clear()
 		if self.width < 60 or self.height < 20:
@@ -349,8 +346,9 @@ class NCEngine:
 			# check if resized
 			if curses.is_term_resized(self.height, self.width):
 				curses.resizeterm(self.height, self.width)
+				self._getSize()
 			# render border
-			if self._borderColor:
+			if self.screenBorder:
 				self.drawBorder()
 			# render lines
 			self.drawLines()
@@ -364,21 +362,25 @@ class NCEngine:
 	def drawObjects(self):
 		""" Draw all objects in object collection """
 		for key, o in self.objects.items():
-			posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
+			if o.rtc:	# only horisontal center is supported currently, and only absolute values
+				hcenter = int((self.width - 1) / 2)
+				posX = hcenter + o.x
+			else:
+				posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
 			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
-			if o.frame:
-				if o.maxWidth + o.x < self.width:
-					for nr, item in enumerate(o.content):
-						self.wts(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', o.color)
-				self.wts(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', o.color)							# Top
-				self.wts(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', o.color)		# Bottom
+			if hasattr(o, 'frame'):
+				pass
+#				if o.maxWidth + o.x < self.width:
+#					for nr, item in enumerate(o.content):
+#						self.wts(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', o.color)
+#				self.wts(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', o.color)					# Top
+#				self.wts(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', o.color)		# Bottom
 			# text
 			for nr, item in enumerate(o.content):
-				itemColor = o.color
-				if o.type == 'MENU':
-					itemColor = 200 if nr == o.pointer.get() else o.color
-				self.wts(posY + nr + 1, posX + 2, item, itemColor)
+#				if o.type == 'MENU':
+#					itemColor = 200 if nr == o.pointer.get() else o.color
+				self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 
 
 	def drawLines(self):
@@ -386,7 +388,10 @@ class NCEngine:
 		intersections = [[], []]
 		for l in self.lines:
 			if l[0] == 'v':
-				position = int((l[1] * self.width / 100) if type(l[1]) == float else l[1])
+				if len(l) == 3:
+					position = l[1] + int((self.width - 1) / 2)
+				else:
+					position = int((l[1] * self.width / 100) if type(l[1]) == float else l[1])
 				intersections[0].append(position)
 				for yPos in range(1, self.height - 2):
 					self.wts(yPos, position, '│', self._borderColor)
@@ -394,7 +399,10 @@ class NCEngine:
 				self.wts(0, position, '┬',self._borderColor)
 				self.wts(self.height - 2, position, '┴', self._borderColor)
 			elif l[0] == 'h':
-				position = int((l[1] * self.height / 100) - 1 if type(l[1]) == float else l[1])
+				if len(l) == 3:
+					position = l[1] + ((self.height - 1) / 2)
+				else:
+					position = int((l[1] * self.height / 100) - 1 if type(l[1]) == float else l[1])
 				intersections[1].append(position)
 				self.wts(position, 1, '─' * (self.width - 2), self._borderColor)
 				# endpoints
@@ -410,7 +418,7 @@ class NCEngine:
 		""" Draw the staic border of the screen """
 		# horizontal lines
 		self.wts(0, 0, '╭' + '─' * (self.width - 2) + '╮', self._borderColor)						# Top
-		self.wts(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', self._borderColor)			# Bottom
+		self.wts(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', self._borderColor)				# Bottom
 		# vertical lines
 		for yPos in range(1, self.height - 2):
 			self.wts(yPos, 0, '│', self._borderColor)
@@ -424,15 +432,16 @@ class NCEngine:
 			self.terminate()
 			self.running = False
 		elif keyPressed == 259:		# KEY_UP
-			self.activeObject.pointer.dec()
+			pass
+			#self.activeObject.pointer.dec()
 		elif keyPressed == 258:		# KEY_DOWN
-			self.activeObject.pointer.inc()
+			pass
+			#self.activeObject.pointer.inc()
 		elif keyPressed == 260:		# KEY_LEFT
 			pass
 		elif keyPressed == 261:		# KEY_RIGHT
 			pass
-		else:
-			return keyPressed
+		return keyPressed 		# return key for (possible) further action in calling program
 
 
 	def terminate(self):
@@ -446,10 +455,6 @@ class NCEngine:
 # --- Setter Functions ----------------------------------------------------------------------------
 
 	@property
-	def pointer(self):
-		return self.objects[self._activeObjectNo].pointer.get()
-
-	@property
 	def borderColor(self):
 		return self._borderColor
 
@@ -457,45 +462,23 @@ class NCEngine:
 	def borderColor(self, val):
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
-	@property
-	def activeObject(self):
-		if self._activeObjectNo:
-			return self.objects[self._activeObjectNo]
+	def addGridLine(self, type, pos, relativeToCenter=False):
+		if relativeToCenter:
+			self.lines.append([type, pos, True])
 		else:
-			return None
+			self.lines.append([type, pos])
 
-	@activeObject.setter
-	def activeObject(self, val):
-		self._activeObjectNo = val if val < len(self.objects) else None
-		if not self._activeObjectNo:
-			sys.exit('No object number ' + str(val))
-
-	@activeObject.setter
-	def status(self, val):
-		self._status = val
-
-	def addGridLine(self, type, coordinate):
-		self.lines.append([type, coordinate])
-
-	def addLabel(self, x, y, item, color):
-		maxLength = len(item)
+	def addLabel(self, x, y, text, color, rtc=False):
+		maxLength = len(text)
 		id = self.generateID()
-		self.objects[id] = nceObject('LABEL', x, y, [item], color, maxLength, False)
+		self.objects[id] = nceLabel(x, y, text, color, maxLength, rtc)
 		return id
 
-	def addTextbox(self, x, y, items, color, frame):
-		maxLength = len(max(items, key=lambda coll: len(coll)))
-		id = self.generateID()
-		self.objects[id] =  nceObject('TEXTBOX', x, y, items, color, maxLength, frame)
-		return id
-
-	def addMenu(self, x, y, items, color, frame):
+	def addTextBox(self, x, y, items, color, frame, rtc=False):
 		items = list(map(str, items))	# ensure list items are string-type
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		id = self.generateID()
-		obj = nceObject('MENU', x, y, items, color, maxLength, frame)
-		obj.pointer = poktools.RangeIterator(len(items) - 1, False)
-		self.objects[id] = obj
+		self.objects[id] = nceTextBox(x, y, items, color, maxLength, frame, rtc)
 		return id
 
 
@@ -521,6 +504,6 @@ if sys.version_info < (3, 0):
 # - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
 # - Hvad/hvordan skal pointeren defineres....? Der skal kun vaere EEN!
 # - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
-
+# - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
 
 

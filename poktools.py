@@ -10,6 +10,13 @@ import logging as log
 
 # --- Functions ----------------------------------------------------------------------------------
 
+def ensurePackage(package):
+    """ Check whether APT package exists, installs if it not """
+    if not checkPackage(package):
+        installPackage(package)
+    return True
+
+
 def checkPackage(package):
     """ Check whether APT package exists """
     if ' ' in package:
@@ -20,6 +27,13 @@ def checkPackage(package):
         return False
     else:
         return True
+
+
+def installPackage(package):
+    """ Installs package via apt """
+    reply = runExternal('sudo apt install ' + str(package) + ' -y')
+    return reply
+
 
 def readFileContents(self, fil):
     """ Read and return file contnts """
@@ -111,7 +125,7 @@ class RangeIterator():
 # Module cannot be called directly
 
 # --- TODO ---------------------------------------------------------------------------------------
-# -
+# - Skla have en log-function i en klasse... skal/boer fungere som i movietools
 
 
 
