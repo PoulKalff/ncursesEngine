@@ -138,8 +138,13 @@ class nceTextBox:
 		self.x = _xPos
 		self.y = _yPos
 		self.rtc = _relativeToCenter
-		self.frame = _frame
 		self.color = _color
+		if _frame:
+			self.frame = []
+			self.frame.append(['╭─' + ('─' * (_mWidth - 2)) + '─╮', _color])		# Top
+			for i in _content:
+				self.frame.append(['│ ' + (' ' * (_mWidth - 2))  + ' │', _color])
+			self.frame.append(['└─' + ('─' * (_mWidth - 2)) + '─╯', _color])		# Bottom
 		self.content = []
 		for i in _content:
 			self.content.append([i, _color])
@@ -147,11 +152,24 @@ class nceTextBox:
 		self.visible = True
 
 
+	def highlight(self, _nr, _color=200):
+		""" Set all items to default color and highlight <_nr> """
+		for nr, i in enumerate(self.content):
+			self.content[nr][1] = self.color
+		self.content[_nr][1] =  _color
+
+
+	def colorFrame(self, _color):
+		""" Sets the color of the frame of the object, if object has a frame """
+		if hasattr(self, 'frame'):
+			for nr, i in enumerate(self.frame):
+				self.frame[nr][1] = _color
+
+
 class NCEngine:
 	""" Presents the screen of a program """
 
 	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
-	_status = 'Init'
 	_borderColor = 0
 	lines = []
 	objects = {}
@@ -164,6 +182,7 @@ class NCEngine:
 		self.screen.keypad(1)
 		self.screen.scrollok(0)
 		self._getSize()
+		self.status = 'Init'
 		curses.noecho()
 		curses.curs_set(0)
 		# init colors
@@ -353,7 +372,7 @@ class NCEngine:
 			# render lines
 			self.drawLines()
 			# render status
-			self.wts(self.height - 1, 1, self._status , 1)
+			self.wts(self.height - 1, 1, self.status , 1)
 			# render objects
 			self.drawObjects()
 		self.screen.refresh()
@@ -370,16 +389,10 @@ class NCEngine:
 			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 			# frame
 			if hasattr(o, 'frame'):
-				pass
-#				if o.maxWidth + o.x < self.width:
-#					for nr, item in enumerate(o.content):
-#						self.wts(o.y + nr + 1, o.x, '│ ' + (o.maxWidth * ' ')  + ' │', o.color)
-#				self.wts(o.y, o.x, '╭─' + ('─' * o.maxWidth) + '─╮', o.color)					# Top
-#				self.wts(o.y + len(o.content) + 1, o.x, '└─' + ('─' * o.maxWidth) + '─╯', o.color)		# Bottom
+				for nr, item in enumerate(o.frame):
+					self.wts(posY + nr, posX + 1, item[0], item[1])
 			# text
 			for nr, item in enumerate(o.content):
-#				if o.type == 'MENU':
-#					itemColor = 200 if nr == o.pointer.get() else o.color
 				self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 
 
@@ -451,6 +464,25 @@ class NCEngine:
 		curses.nocbreak()
 		curses.endwin()
 
+	def exit(self, _exitMessage):
+		# Set everything back to normal
+		self.screen.keypad(0)
+		curses.echo()
+		curses.nocbreak()
+		curses.endwin()
+		if type(_exitMessage) == list:
+			print('--- Exit List dump begin -----------------------------')
+			for item in _exitMessage:
+				print('  ' + str(item))
+			print('--- Exit List dump end -------------------------------\n')
+		elif type(_exitMessage) == dict:
+			print('--- Exit Dict dump begin -----------------------------')
+			for key, val in _exitMessage.items():
+				print('  ' + str(key) + ' : ' + str(val))
+			print('--- Exit Dict dump end -------------------------------\n')
+		else:
+			sys.exit(str(_exitMessage))
+
 
 # --- Setter Functions ----------------------------------------------------------------------------
 
@@ -496,13 +528,9 @@ if sys.version_info < (3, 0):
 # --- TODO ---------------------------------------------------------------------------------------
 # - BUG 	  : Stadigt problemer med scroll/count af bytes..... (??)
 # - BUG		  : Crasher stadigt hvis window bliver minimalt I HOEJDE!!
-# - FEATURE	  : lave properties til alt, som kan indstilles
-# - DOKUMENTATION : Lav mindst simpel dokumentation af hver funktion
 # - Status mangler for alle editors ..... pånær digitseditor
-# - Status skal have en fast farve
 # - En form for funktion hvor man kan tilfoeje colour-init-pairs, ud over default......addColor(c1, c2='Black')
 # - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
-# - Hvad/hvordan skal pointeren defineres....? Der skal kun vaere EEN!
 # - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
 
