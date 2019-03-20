@@ -17,10 +17,8 @@ locale.setlocale(locale.LC_ALL, '')
 
 class File:
 		""" Slave class used by SelectPath """
-
 		def __init__(self, name):
 				self.name = name
-
 		def pad(self, data, width):
 				return data + ' ' * (width - len(data))
 		def render(self, depth, width):
@@ -150,6 +148,7 @@ class nceTextBox:
 			self.content.append([i, _color])
 		self.maxWidth = _mWidth
 		self.visible = True
+		self.pointer = 0
 
 
 	def highlight(self, _nr, _color=200):
@@ -466,6 +465,7 @@ class NCEngine:
 
 	def exit(self, _exitMessage):
 		# Set everything back to normal
+		self.running = False
 		self.screen.keypad(0)
 		curses.echo()
 		curses.nocbreak()
@@ -533,5 +533,5 @@ if sys.version_info < (3, 0):
 # - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
 # - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
-
+# - Dialogbox-type
 
