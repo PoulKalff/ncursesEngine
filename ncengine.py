@@ -116,7 +116,7 @@ class SelectPath:
 
 
 class nceLabel:
-	""" A shared object for menu, label and texbox """
+	""" Label object"""
 
 	def __init__(self, _xPos, _yPos, _text, _color, _mWidth, _relativeToCenter):
 		self.x = _xPos
@@ -129,8 +129,51 @@ class nceLabel:
 
 
 
+class nceDialogBox:
+	""" Dialog object, which can only be YES or NO """
+
+	def __init__(self, _xPos, _yPos, _content, _color, _relativeToCenter):
+		self.x = _xPos
+		self.y = _yPos
+		self.rtc = _relativeToCenter
+		self.color = _color
+		maxLength = max(len(x) for x in _content)
+		self.content = []
+		_content.append('YES')
+		_content.append('NO!')
+		maxLength = max(len(x) for x in _content)
+		for nr, line in enumerate(_content):
+			missing = round((maxLength - len(line)) / 2) if len(line) < maxLength else 0
+			pad = missing * ' '
+#			_content[nr] = pad + line + pad
+			self.content.append([pad + line + pad, _color])
+		self.frame = []
+		self.frame.append(['╭─' + ('─' * (maxLength - 2)) + '─╮', _color])		# Top
+		for i in _content:
+			self.frame.append(['│ ' + (' ' * (maxLength - 2))  + ' │', _color])
+		self.frame.append(['└─' + ('─' * (maxLength - 2)) + '─╯', _color])		# Bottom
+		self.maxWidth = maxLength
+		self.visible = True
+		self.pointer = 0
+		self.marked = poktools.FlipSwitch(0)
+
+
+	def switch(self, _color=200):
+		""" Changes the marked selection"""
+		self.content[self.marked.get()][1] = self.color
+		self.marked.flip()
+		self.content[self.marked.get()][1] = _color
+
+
+
+	def getCurrentSelection(self):
+		""" Return currently selected item and quit """
+		return 1
+
+
+
 class nceTextBox:
-	""" A shared object for menu, label and texbox """
+	""" TextBox object """
 
 	def __init__(self, _xPos, _yPos, _content, _color, _mWidth, _frame, _relativeToCenter):
 		self.x = _xPos
@@ -201,7 +244,10 @@ class NCEngine:
 		elif yCord > width:
 			 self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
 		else:
-			 self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
+			try:
+				self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
+			except:
+				self.exit([xCord, yCord, txt, col])
 		return True
 
 
@@ -513,6 +559,12 @@ class NCEngine:
 		self.objects[id] = nceTextBox(x, y, items, color, maxLength, frame, rtc)
 		return id
 
+	def addDialogBox(self, x, y, items, color, rtc=False):
+		items = list(map(str, items))	# ensure list items are string-type
+		maxLength = len(max(items, key=lambda coll: len(coll)))
+		id = self.generateID()
+		self.objects[id] = nceDialogBox(x, y, items, color, rtc)
+		return id
 
 
 
