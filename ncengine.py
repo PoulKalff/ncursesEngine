@@ -128,48 +128,45 @@ class nceLabel:
 		self.visible = True
 
 
-
 class nceDialogBox:
 	""" Dialog object, which can only be YES or NO """
 
-	def __init__(self, _xPos, _yPos, _content, _color, _relativeToCenter):
-		self.x = _xPos
-		self.y = _yPos
-		self.rtc = _relativeToCenter
+	def __init__(self, _parent, _content, _color, _mWidth):
+		height, width = _parent.view.screen.getmaxyx()
+		self.x = round(_mWidth / 2 * -1) -1
+		self.y = round((height / 3) - (len(_content) + 2) / 2)
+		self.rtc = True
 		self.color = _color
-		maxLength = max(len(x) for x in _content)
+		self.maxWidth = _mWidth
 		self.content = []
-		_content.append('YES')
 		_content.append('NO!')
-		maxLength = max(len(x) for x in _content)
+		_content.append('YES')
 		for nr, line in enumerate(_content):
-			missing = round((maxLength - len(line)) / 2) if len(line) < maxLength else 0
-			pad = missing * ' '
-#			_content[nr] = pad + line + pad
-			self.content.append([pad + line + pad, _color])
+			while len(line) < self.maxWidth:
+				line = ' ' + line
+				if len(line) < self.maxWidth:
+					line = line + ' '
+			self.content.append([line, _color])
 		self.frame = []
-		self.frame.append(['╭─' + ('─' * (maxLength - 2)) + '─╮', _color])		# Top
+		self.frame.append(['╭' + ('─' * (self.maxWidth)) + '╮', _color])		# Top
 		for i in _content:
-			self.frame.append(['│ ' + (' ' * (maxLength - 2))  + ' │', _color])
-		self.frame.append(['└─' + ('─' * (maxLength - 2)) + '─╯', _color])		# Bottom
-		self.maxWidth = maxLength
-		self.visible = True
-		self.pointer = 0
-		self.marked = poktools.FlipSwitch(0)
+			self.frame.append(['│' + (' ' * (self.maxWidth))  + '│', _color])
+		self.frame.append(['└' + ('─' * (self.maxWidth)) + '╯', _color])		# Bottom
+		self.pointer = poktools.FlipSwitch(1)
+		self.switch()	# To mark selected
 
 
 	def switch(self, _color=200):
 		""" Changes the marked selection"""
-		self.content[self.marked.get()][1] = self.color
-		self.marked.flip()
-		self.content[self.marked.get()][1] = _color
+		linesAbove = len(self.content) - 2
+		self.content[self.pointer.get() + linesAbove][1] = self.color
+		self.pointer.flip()
+		self.content[self.pointer.get() + linesAbove][1] = _color
 
 
-
-	def getCurrentSelection(self):
+	def getResult(self):
 		""" Return currently selected item and quit """
-		return 1
-
+		return self.pointer.get()
 
 
 class nceTextBox:
@@ -182,10 +179,10 @@ class nceTextBox:
 		self.color = _color
 		if _frame:
 			self.frame = []
-			self.frame.append(['╭─' + ('─' * (_mWidth - 2)) + '─╮', _color])		# Top
+			self.frame.append(['╭' + ('─' * (_mWidth)) + '╮', _color])		# Top
 			for i in _content:
-				self.frame.append(['│ ' + (' ' * (_mWidth - 2))  + ' │', _color])
-			self.frame.append(['└─' + ('─' * (_mWidth - 2)) + '─╯', _color])		# Bottom
+				self.frame.append(['│' + (' ' * (_mWidth))  + '│', _color])
+			self.frame.append(['└' + ('─' * (_mWidth)) + '╯', _color])		# Bottom
 		self.content = []
 		for i in _content:
 			self.content.append([i, _color])
@@ -559,11 +556,11 @@ class NCEngine:
 		self.objects[id] = nceTextBox(x, y, items, color, maxLength, frame, rtc)
 		return id
 
-	def addDialogBox(self, x, y, items, color, rtc=False):
+	def addDialogBox(self, parent, items, color):
 		items = list(map(str, items))	# ensure list items are string-type
 		maxLength = len(max(items, key=lambda coll: len(coll)))
 		id = self.generateID()
-		self.objects[id] = nceDialogBox(x, y, items, color, rtc)
+		self.objects[id] = nceDialogBox(parent, items, color, maxLength)
 		return id
 
 
