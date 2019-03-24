@@ -16,50 +16,50 @@ locale.setlocale(locale.LC_ALL, '')
 
 
 class File:
-		""" Slave class used by SelectPath """
-		def __init__(self, name):
-				self.name = name
-		def pad(self, data, width):
-				return data + ' ' * (width - len(data))
-		def render(self, depth, width):
-				return self.pad('%s%s %s' % (' ' * 4 * depth, self.icon(), os.path.basename(self.name)), width)
-		def icon(self): return '   '
-		def traverse(self): yield self, 0
-		def expand(self): pass
-		def collapse(self): pass
+	""" Slave class used by SelectPath """
+	def __init__(self, name):
+		self.name = name
+	def pad(self, data, width):
+		return data + ' ' * (width - len(data))
+	def render(self, depth, width):
+		return self.pad('%s%s %s' % (' ' * 4 * depth, self.icon(), os.path.basename(self.name)), width)
+	def icon(self): return '   '
+	def traverse(self): yield self, 0
+	def expand(self): pass
+	def collapse(self): pass
 
 
 class Dir(File):
-		""" Slave class used by SelectPath """
+	""" Slave class used by SelectPath """
 
-		def __init__(self, name):
-				File.__init__(self, name)
-				try: self.kidnames = sorted(os.listdir(name))
-				except: self.kidnames = None  # probably permission denied
-				self.kids = None
-				self.expanded = False
-		def factory(self, name):    # copy of parent, rather than sending it with object
-				if os.path.isdir(name): return Dir(name)
-				else: return File(name)
-		def children(self):
-				if self.kidnames is None: return []
-				if self.kids is None:
-						self.kids = [self.factory(os.path.join(self.name, kid))
-												 for kid in self.kidnames]
-				return self.kids
-		def icon(self):
-				if self.expanded: return '[-]'
-				elif self.kidnames is None: return '[?]'
-				elif self.children(): return '[+]'
-				else: return '[ ]'
-		def expand(self): self.expanded = True
-		def collapse(self): self.expanded = False
-		def traverse(self):
-				yield self, 0
-				if not self.expanded: return
-				for child in self.children():
-						for kid, depth in child.traverse():
-								yield kid, depth + 1
+	def __init__(self, name):
+		File.__init__(self, name)
+		try: self.kidnames = sorted(os.listdir(name))
+		except: self.kidnames = None  # probably permission denied
+		self.kids = None
+		self.expanded = False
+	def factory(self, name):    # copy of parent, rather than sending it with object
+		if os.path.isdir(name): return Dir(name)
+		else: return File(name)
+	def children(self):
+		if self.kidnames is None: return []
+		if self.kids is None:
+			self.kids = [self.factory(os.path.join(self.name, kid))
+				for kid in self.kidnames]
+		return self.kids
+	def icon(self):
+		if self.expanded: return '[-]'
+		elif self.kidnames is None: return '[?]'
+		elif self.children(): return '[+]'
+		else: return '[ ]'
+	def expand(self): self.expanded = True
+	def collapse(self): self.expanded = False
+	def traverse(self):
+		yield self, 0
+		if not self.expanded: return
+		for child in self.children():
+			for kid, depth in child.traverse():
+				yield kid, depth + 1
 
 class SelectPath:
 		""" Presents a curses screen where user can select a path / file, returns result """
@@ -152,6 +152,7 @@ class nceDialogBox:
 		for i in _content:
 			self.frame.append(['│' + (' ' * (self.maxWidth))  + '│', _color])
 		self.frame.append(['└' + ('─' * (self.maxWidth)) + '╯', _color])		# Bottom
+		self.visible = True
 		self.pointer = poktools.FlipSwitch(1)
 		self.switch()	# To mark selected
 
@@ -266,7 +267,7 @@ class NCEngine:
 		return next(self._generateID)
 
 
-	def digitsEditor(self, x, y, eString, color):
+	def digitsEditor(self, x, y, eString, color):			# UTESTET!
 		""" Edits digits """
 		self._getSize()
 		xPos = int((x * self.width / 100) + 2 if type(x) == float else x)
@@ -316,7 +317,7 @@ class NCEngine:
 		return returnFile
 
 
-	def boolEditor(self, x, y, value, color):
+	def boolEditor(self, x, y, value, color):			# UTESTET!
 		""" Edits True/False """
 		bValue = 0 if value == 'False' else 1
 		pointer = FlipSwitch(bValue)
@@ -342,6 +343,7 @@ class NCEngine:
 
 	def textEditor(self, x, y, eString, color):
 		""" Edits a line of text """
+		eString += ' '
 		pointer = poktools.RangeIterator(len(eString) - 1, False)
 		keyPressed = ''
 		stringSliced = [[], [], []]
@@ -359,9 +361,9 @@ class NCEngine:
 			self.wts(yPos, xPos + len(stringSliced[0]), stringSliced[1], 200)
 			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], color)
 			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', 3)    # overwrite last char
-# DEBUG		self.wts(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , 4)
-# DEBUG		self.wts(21, 2, str(stringSliced) + ' ' , 4)
-# DEBUG		self.wts(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', 4)
+#			self.wts(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , 4)
+#			self.wts(21, 2, str(stringSliced) + ' ' , 4)
+#			self.wts(22, 2, str(len(stringSliced[0])) + ' ' + str(len(stringSliced[1])) + ' ' + str(len(stringSliced[2])) + ' ', 4)
 			self.screen.refresh()
 			keyPressed = self.screen.getch()
 			if keyPressed == 261:            # Cursor RIGHT
@@ -423,19 +425,20 @@ class NCEngine:
 	def drawObjects(self):
 		""" Draw all objects in object collection """
 		for key, o in self.objects.items():
-			if o.rtc:	# only horisontal center is supported currently, and only absolute values
-				hcenter = int((self.width - 1) / 2)
-				posX = hcenter + o.x
-			else:
-				posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
-			posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
-			# frame
-			if hasattr(o, 'frame'):
-				for nr, item in enumerate(o.frame):
-					self.wts(posY + nr, posX + 1, item[0], item[1])
-			# text
-			for nr, item in enumerate(o.content):
-				self.wts(posY + nr + 1, posX + 2, item[0], item[1])
+			if o.visible:
+				if o.rtc:	# only horisontal center is supported currently, and only absolute values
+					hcenter = int((self.width - 1) / 2)
+					posX = hcenter + o.x
+				else:
+					posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
+				posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
+				# frame
+				if hasattr(o, 'frame'):
+					for nr, item in enumerate(o.frame):
+						self.wts(posY + nr, posX + 1, item[0], item[1])
+				# text
+				for nr, item in enumerate(o.content):
+					self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 
 
 	def drawLines(self):
@@ -473,7 +476,7 @@ class NCEngine:
 		""" Draw the staic border of the screen """
 		# horizontal lines
 		self.wts(0, 0, '╭' + '─' * (self.width - 2) + '╮', self._borderColor)						# Top
-		self.wts(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', self._borderColor)				# Bottom
+		self.wts(self.height - 2, 0, '└' + '─' * (self.width - 2) + '╯', self._borderColor)			# Bottom
 		# vertical lines
 		for yPos in range(1, self.height - 2):
 			self.wts(yPos, 0, '│', self._borderColor)
@@ -486,16 +489,6 @@ class NCEngine:
 		if keyPressed == 113:		# <escape>
 			self.terminate()
 			self.running = False
-		elif keyPressed == 259:		# KEY_UP
-			pass
-			#self.activeObject.pointer.dec()
-		elif keyPressed == 258:		# KEY_DOWN
-			pass
-			#self.activeObject.pointer.inc()
-		elif keyPressed == 260:		# KEY_LEFT
-			pass
-		elif keyPressed == 261:		# KEY_RIGHT
-			pass
 		return keyPressed 		# return key for (possible) further action in calling program
 
 
@@ -505,6 +498,7 @@ class NCEngine:
 		curses.echo()
 		curses.nocbreak()
 		curses.endwin()
+
 
 	def exit(self, _exitMessage):
 		# Set everything back to normal
@@ -582,5 +576,6 @@ if sys.version_info < (3, 0):
 # - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
 # - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
-# - Dialogbox-type
-
+# - self.lines skal kunne saettes til invisible
+# - Lines should never wrap! (on resize) Must be ignored if not on screen
+# - Gracefully handle if objects drawn outside screen, e.g. on resize... perhaps recalculate them, or at least reset program to avoid crash

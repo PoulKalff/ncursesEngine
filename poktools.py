@@ -90,7 +90,7 @@ class FlipSwitch():
 
 
 class RangeIterator():
-    """ Represents a range of INTs from 0 -> X """
+    # (v3) Represents a range of INTs from 0 -> X
 
     def __init__(self, Ind, loop=True):
         self.current = 0
@@ -105,7 +105,20 @@ class RangeIterator():
         self.current -= count
         self._test()
 
+    def incMax(self, count=1):
+        """ Increase both value and max valuse """
+        self.max += count
+        self.current += count
+        self._test()
+
+    def decMax(self, count=1):
+        """ Increase both value and max valuse """
+        self.max -= count
+        self.current -= count
+        self._test()
+
     def _test(self):
+        self.max = 0 if self.max < 0 else self.max
         if self.loop:
             if self.current > self.max:
                 self.current -= self.max + 1
@@ -119,6 +132,7 @@ class RangeIterator():
 
     def get(self):
         return self.current
+
 
 # --- Main Program -------------------------------------------------------------------------------
 
