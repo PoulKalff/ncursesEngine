@@ -9,7 +9,7 @@ import poktools
 
 # --- Variables -----------------------------------------------------------------------------------
 
-version = "v0.05"   # added SelectPath
+version = "v0.07"   # fixed tabs
 locale.setlocale(locale.LC_ALL, '')
 
 # --- Classes -------------------------------------------------------------------------------------
@@ -62,57 +62,56 @@ class Dir(File):
 				yield kid, depth + 1
 
 class SelectPath:
-		""" Presents a curses screen where user can select a path / file, returns result """
+	""" Presents a curses screen where user can select a path / file, returns result """
 
-		def __init__(self, pScreen, startDir="/"):
-				self.startDir = startDir
-				self.screen = pScreen
-				self.selected = False
-				mydir = self.factory(self.startDir)
-				mydir.expand()
-				curidx = 3
-				pending_action = None
-				pending_save = False
-				while 1:
-						self.screen.clear()
-						line = 0
-						offset = max(0, curidx - curses.LINES + 3)
-						for data, depth in mydir.traverse():
-								if line == curidx:
-										self.screen.attrset(curses.color_pair(7) | curses.A_BOLD)
-										if pending_action:
-												getattr(data, pending_action)()
-												pending_action = None
-										elif pending_save:
-												self.selected = data.name
-												return
-								else:
-										self.screen.attrset(curses.color_pair(0))
-								if 0 <= line - offset < curses.LINES - 1:
-										self.screen.addstr(line - offset, 0, data.render(depth, curses.COLS))
-								line += 1
-						pending_save = False
-						self.screen.refresh()
-						ch = self.screen.getch()
-						if ch == curses.KEY_UP: curidx -= 1
-						elif ch == curses.KEY_DOWN: curidx += 1
-						elif ch == curses.KEY_PPAGE:
-								curidx -= curses.LINES
-								if curidx < 0: curidx = 0
-						elif ch == curses.KEY_NPAGE:
-								curidx += curses.LINES
-								if curidx >= line: curidx = line - 1
-						elif ch == curses.KEY_RIGHT: pending_action = 'expand'
-						elif ch == curses.KEY_LEFT: pending_action = 'collapse'
-						elif ch == 27 or ch == 113: return    # <return> or 'q'
-						elif ch == ord('\n'): pending_save = True
-						curidx %= line
+	def __init__(self, pScreen, startDir="/"):
+		self.startDir = startDir
+		self.screen = pScreen
+		self.selected = False
+		mydir = self.factory(self.startDir)
+		mydir.expand()
+		curidx = 3
+		pending_action = None
+		pending_save = False
+		while 1:
+			self.screen.clear()
+			line = 0
+			offset = max(0, curidx - curses.LINES + 3)
+			for data, depth in mydir.traverse():
+				if line == curidx:
+					self.screen.attrset(curses.color_pair(7) | curses.A_BOLD)
+					if pending_action:
+						getattr(data, pending_action)()
+						pending_action = None
+					elif pending_save:
+						self.selected = data.name
+						return
+				else:
+					self.screen.attrset(curses.color_pair(0))
+				if 0 <= line - offset < curses.LINES - 1:
+					self.screen.addstr(line - offset, 0, data.render(depth, curses.COLS))
+				line += 1
+			pending_save = False
+			self.screen.refresh()
+			ch = self.screen.getch()
+			if ch == curses.KEY_UP: curidx -= 1
+			elif ch == curses.KEY_DOWN: curidx += 1
+			elif ch == curses.KEY_PPAGE:
+				curidx -= curses.LINES
+				if curidx < 0: curidx = 0
+			elif ch == curses.KEY_NPAGE:
+				curidx += curses.LINES
+				if curidx >= line: curidx = line - 1
+			elif ch == curses.KEY_RIGHT: pending_action = 'expand'
+			elif ch == curses.KEY_LEFT: pending_action = 'collapse'
+			elif ch == 27 or ch == 113: return    # <return> or 'q'
+			elif ch == ord('\n'): pending_save = True
+			curidx %= line
 
-
-		def factory(self, name):
-				""" Slave function, to build up path """
-				if os.path.isdir(name): return Dir(name)
-				else: return File(name)
+	def factory(self, name):
+		""" Slave function, to build up path """
+		if os.path.isdir(name): return Dir(name)
+		else: return File(name)
 
 
 class nceLabel:
@@ -244,8 +243,8 @@ class NCEngine:
 		else:
 			try:
 				self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
-			except:
-				self.exit([xCord, yCord, txt, col])
+			except Exception as err:
+				self.exit(['Error encountered in writeToScreen!', str(err)] + ['xCord= ' + str(xCord), 'yCord= ' + str(yCord), 'txt= ' + str(txt), 'col= ' + str(col)])
 		return True
 
 
@@ -579,3 +578,4 @@ if sys.version_info < (3, 0):
 # - self.lines skal kunne saettes til invisible
 # - Lines should never wrap! (on resize) Must be ignored if not on screen
 # - Gracefully handle if objects drawn outside screen, e.g. on resize... perhaps recalculate them, or at least reset program to avoid crash
+# - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
