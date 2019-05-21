@@ -17,13 +17,24 @@ def ensurePackage(package):
     return True
 
 
-def checkPackage(package):
-    """ Check whether APT package exists """
+def checkPackageInstalled(package):
+    """ Check whether APT package is installed """
     if ' ' in package:
-        return -1       # Please specify one pacakge only
+        return -1       # Please specify one package only
     raw_output = runExternal("dpkg -l " + package)
     lines = raw_output.split('\n')
     if len(lines) == 1:
+        return False
+    else:
+        return True
+
+def checkPackageExists(package):
+    """ Check whether APT package exists """
+    if ' ' in package:
+        return -1       # Please specify one package only
+    raw_output = runExternal("apt policy " + package)
+    lines = raw_output.split('\n')
+    if len(lines) == 3:
         return False
     else:
         return True

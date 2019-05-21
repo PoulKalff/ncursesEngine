@@ -114,52 +114,47 @@ class SelectPath:
 		else: return File(name)
 
 
-class nceLabel:
+# --- Inherited CLasses -----------------------------------------------------------------------
+
+
+class nceObject:
+	""" nce object for inherit """
+
+	def __init__(self, x, y, content):
+		self.x = x
+		self.y = y
+		self.color = 3
+		self.content = content
+		self.visible = True
+		self.frame = False
+
+
+class nceLabel(nceObject):
 	""" Label object"""
 
-	def __init__(self, _xPos, _yPos, _text, _color, _mWidth, _relativeToCenter):
-		self.x = _xPos
-		self.y = _yPos
-		self.rtc = _relativeToCenter
-		self.color = _color
-		self.content = [[_text, _color]]
-		self.maxWidth = _mWidth
-		self.visible = True
+	def __init__(self, x, y, content):
+		super().__init__(x, y, content)
+		self.type = 'LABEL'
 
 
-class nceDialogBox:
+class nceDialogBox(nceObject):
 	""" Dialog object, which can only be YES or NO """
 
-	def __init__(self, _parent, _content, _color, _mWidth):
-		height, width = _parent.view.screen.getmaxyx()
-		self.x = round(_mWidth / 2 * -1) -1
-		self.y = round((height / 3) - (len(_content) + 2) / 2)
-		self.rtc = True
-		self.color = _color
-		self.maxWidth = _mWidth
+	def __init__(self, x, y, content):
+		super().__init__(x, y, content)
+		self.type = 'DIALOGBOX'
 		self.content = []
-		_content.append('NO!')
-		_content.append('YES')
-		for nr, line in enumerate(_content):
-			while len(line) < self.maxWidth:
-				line = ' ' + line
-				if len(line) < self.maxWidth:
-					line = line + ' '
-			self.content.append([line, _color])
-		self.frame = []
-		self.frame.append(['╭' + ('─' * (self.maxWidth)) + '╮', _color])		# Top
-		for i in _content:
-			self.frame.append(['│' + (' ' * (self.maxWidth))  + '│', _color])
-		self.frame.append(['└' + ('─' * (self.maxWidth)) + '╯', _color])		# Bottom
-		self.visible = True
+		self.content.append(['NO!', 3])
+		self.content.append(['YES', 3])
+		self.maxWidth = 3
 		self.pointer = poktools.FlipSwitch(1)
-		self.switch()	# To mark selected
+		self.switch()   # To mark selected
 
 
 	def switch(self, _color=200):
 		""" Changes the marked selection"""
 		linesAbove = len(self.content) - 2
-		self.content[self.pointer.get() + linesAbove][1] = self.color
+		self.content[self.pointer.get() + linesAbove][1] = 3
 		self.pointer.flip()
 		self.content[self.pointer.get() + linesAbove][1] = _color
 
@@ -169,27 +164,13 @@ class nceDialogBox:
 		return self.pointer.get()
 
 
-class nceTextBox:
+
+class nceTextBox(nceObject):
 	""" TextBox object """
 
-	def __init__(self, _xPos, _yPos, _content, _color, _mWidth, _frame, _relativeToCenter):
-		self.x = _xPos
-		self.y = _yPos
-		self.rtc = _relativeToCenter
-		self.color = _color
-		if _frame:
-			self.frame = []
-			self.frame.append(['╭' + ('─' * (_mWidth)) + '╮', _color])		# Top
-			for i in _content:
-				self.frame.append(['│' + (' ' * (_mWidth))  + '│', _color])
-			self.frame.append(['└' + ('─' * (_mWidth)) + '╯', _color])		# Bottom
-		self.content = []
-		for i in _content:
-			self.content.append([i, _color])
-		self.maxWidth = _mWidth
-		self.visible = True
-		self.pointer = 0
-
+	def __init__(self, x, y, content):
+		super().__init__(x, y, content)
+		self.type = 'TEXTBOX'
 
 	def highlight(self, _nr, _color=200):
 		""" Set all items to default color and highlight <_nr> """
@@ -197,12 +178,41 @@ class nceTextBox:
 			self.content[nr][1] = self.color
 		self.content[_nr][1] =  _color
 
+	def colorFrame(self, _color):
+		""" Sets the color of the frame of the object, if object has a frame """
+		if self.frame:
+			for nr, i in enumerate(self.frame):
+				self.frame[nr][1] = _color
+
+
+
+class nceMenu(nceObject):
+	""" Menu object """
+
+	def __init__(self, x, y, content):
+		super().__init__(x, y, content)
+		self.type = 'MENU'
+		self.pointer = poktools.RangeIterator(len(self.content) - 1, False)
+
+
+	def highlight(self, _nr, _color=200):
+		""" Set all items to default color and highlight <_nr> """
+		for nr, i in enumerate(self.content):
+			self.content[nr][1] = 3
+		self.content[_nr][1] =  _color
+
 
 	def colorFrame(self, _color):
 		""" Sets the color of the frame of the object, if object has a frame """
-		if hasattr(self, 'frame'):
+		if self.frame:
 			for nr, i in enumerate(self.frame):
 				self.frame[nr][1] = _color
+
+
+	def updateKeys(self, _key):
+		""" Recieves keys and moves on self. """
+		pass
+
 
 
 class NCEngine:
@@ -215,12 +225,13 @@ class NCEngine:
 	running = True
 	screenBorder = False
 
-	def __init__(self):
+	def __init__(self, parent):
 		self.screen = curses.initscr()
 		self.screen.border(0)
 		self.screen.keypad(1)
 		self.screen.scrollok(0)
 		self._getSize()
+		self.parent = parent
 		self.status = 'Init'
 		curses.noecho()
 		curses.curs_set(0)
@@ -248,22 +259,24 @@ class NCEngine:
 		return True
 
 
+	def getActiveObject(self):
+		""" Shows the active object, which will always be the last object in self.objects that is either a menu or a dialogbox! """
+		maxValue = max(self.objects, key=int)
+		index = maxValue
+		while index > 0 and self.objects[index].type != 'MENU' and self.objects[index].type != 'DIALOGBOX':
+			index -= 1
+		if index:
+			return self.objects[index]
+		else:
+			return False
+
+
 	def _getSize(self):
 		""" Update height/width/center """
 		self.height, self.width = self.screen.getmaxyx()
 		self.hcenter = int((self.width - 1) / 2)
 		self.vcenter = (self.height - 1) / 2
 #		self.wts(self.height - 3, 0, str(self.hcenter), 6)	# Debug
-
-	def idGenerator(self):
-		n = 1
-		while True:
-			yield n
-			n += 1
-
-	def generateID(self):
-		""" Get the next sequential ID """
-		return next(self._generateID)
 
 
 	def digitsEditor(self, x, y, eString, color):			# UTESTET!
@@ -428,17 +441,28 @@ class NCEngine:
 				if o.rtc:	# only horisontal center is supported currently, and only absolute values
 					hcenter = int((self.width - 1) / 2)
 					posX = hcenter + o.x
+					posY = o.y
 				else:
 					posX = int((o.x * self.width / 100) if type(o.x) == float else o.x)
-				posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
+					posY = int((o.y * self.height / 100) - 1 if type(o.y) == float else o.y)
 				# frame
-				if hasattr(o, 'frame'):
+				if o.frame:
 					for nr, item in enumerate(o.frame):
 						self.wts(posY + nr, posX + 1, item[0], item[1])
 				# text
-				for nr, item in enumerate(o.content):
-					self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 
+
+#				if o.type == 'MENU':
+#					xx = int(o.y * self.height / 100) - 1
+#					sys.exit('fucker in drawobjects  ' + str(o.y) + '  ' + str( xx ) + '  ' + str(posY) )
+
+
+				for nr, item in enumerate(o.content):
+					try:
+						self.wts(posY + nr + 1, posX + 2, item[0], item[1])
+					except:
+						self.exit("Error occured in drawObjects, while drawing :  " + str(o.content))
+		return True
 
 	def drawLines(self):
 		""" Draw all lines added to object (except border) """
@@ -530,32 +554,97 @@ class NCEngine:
 	def borderColor(self, val):
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
-	def addGridLine(self, type, pos, relativeToCenter=False):
-		if relativeToCenter:
+
+	# Helper function
+	def createContent(self, content):
+		result = []
+		if type(content) is list:
+			self.contentItems = len(content)
+			maxWidth = len(max(content))
+			for i in content:
+				result.append([str(i), 3])
+		else:
+			self.contentItems = 1
+			maxWidth = len(str(content))
+			result.append([str(content), 3])
+		return maxWidth, result
+
+	# Helper function
+	def createFrame(self, content):
+		result = []
+		maxWidth = len(max(content))
+		result.append(['╭' + ('─' * (maxWidth)) + '╮', 3])        # Top
+		for i in range(self.contentItems):
+			result.append(['│' + (' ' * (maxWidth))  + '│', 3])
+		result.append(['└' + ('─' * (maxWidth)) + '╯', 3])        # Bottom
+		return result
+
+
+	# Helper function
+	def idGenerator(self):
+		n = 1
+		while True:
+			yield n
+			n += 1
+
+	# Helper function
+	def generateID(self):
+		""" Get the next sequential ID """
+		return next(self._generateID)
+
+
+	def addGridLine(self, type, pos, rtc):	# Kan ikke vaere usynlige, boer de maaske kunne vaere?
+		if rtc:
 			self.lines.append([type, pos, True])
 		else:
 			self.lines.append([type, pos])
 
-	def addLabel(self, x, y, text, color, rtc=False):
-		maxLength = len(text)
+
+	def addLabel(self, x, y, text, color, rtc, visible=True):
 		id = self.generateID()
-		self.objects[id] = nceLabel(x, y, text, color, maxLength, rtc)
+		maxWidth, content = self.createContent(text)
+		self.objects[id] = nceLabel(x, y, content)
+		self.objects[id].rtc = True if rtc else False
+		self.objects[id].frame = False
+		self.objects[id].maxWidth = maxWidth
+		self.objects[id].visible = visible
+		self.objects[id].color = 3
 		return id
 
-	def addTextBox(self, x, y, items, color, frame, rtc=False):
-		items = list(map(str, items))	# ensure list items are string-type
-		maxLength = len(max(items, key=lambda coll: len(coll)))
+
+	def addTextBox(self, x, y, items, color, frame, rtc, visible=True):
 		id = self.generateID()
-		self.objects[id] = nceTextBox(x, y, items, color, maxLength, frame, rtc)
+		maxWidth, content = self.createContent(items)
+		self.objects[id] = nceTextBox(x, y, content)
+		self.objects[id].rtc = True if rtc else False
+		self.objects[id].frame = self.createFrame(items) if frame else False
+		self.objects[id].maxWidth = maxWidth
+		self.objects[id].visible = visible
+		self.objects[id].color = 3
 		return id
 
-	def addDialogBox(self, parent, items, color):
-		items = list(map(str, items))	# ensure list items are string-type
-		maxLength = len(max(items, key=lambda coll: len(coll)))
+
+	def addDialogBox(self, color, visible=True):
 		id = self.generateID()
-		self.objects[id] = nceDialogBox(parent, items, color, maxLength)
+		x, y = self.calculateRtc(x)
+		self.objects[id] = nceDialogBox(x, y, [])
+		self.objects[id].rtc = False
+		self.objects[id].frame = self.createFrame('YES')
+		self.objects[id].visible = visible
+		self.objects[id].color = 3
 		return id
 
+
+	def addMenu(self, x, y, items, color, frame, rtc, visible=True):
+		id = self.generateID()
+		maxWidth, content = self.createContent(items)
+		self.objects[id] = nceMenu(x, y, content)
+		self.objects[id].rtc = True if rtc else False
+		self.objects[id].frame = self.createFrame(items) if frame else False
+		self.objects[id].maxWidth = maxWidth
+		self.objects[id].visible = visible
+		self.objects[id].color = 3
+		return id
 
 
 
@@ -579,3 +668,4 @@ if sys.version_info < (3, 0):
 # - Lines should never wrap! (on resize) Must be ignored if not on screen
 # - Gracefully handle if objects drawn outside screen, e.g. on resize... perhaps recalculate them, or at least reset program to avoid crash
 # - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
+# - Move COLOR, FRAME, RTC to add-objects, from objects!
