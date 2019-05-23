@@ -193,6 +193,7 @@ class nceMenu(nceObject):
 		super().__init__(x, y, content)
 		self.type = 'MENU'
 		self.pointer = poktools.RangeIterator(len(self.content) - 1, False)
+		self.linkedObjects = []		# objects that have identical content and are highlighted with this menu
 
 
 	def highlight(self, _nr, _color=200):
@@ -450,13 +451,6 @@ class NCEngine:
 					for nr, item in enumerate(o.frame):
 						self.wts(posY + nr, posX + 1, item[0], item[1])
 				# text
-
-
-#				if o.type == 'MENU':
-#					xx = int(o.y * self.height / 100) - 1
-#					sys.exit('fucker in drawobjects  ' + str(o.y) + '  ' + str( xx ) + '  ' + str(posY) )
-
-
 				for nr, item in enumerate(o.content):
 					try:
 						self.wts(posY + nr + 1, posX + 2, item[0], item[1])
@@ -556,18 +550,19 @@ class NCEngine:
 
 
 	# Helper function
-	def createContent(self, content):
+	def createContent(self, content, color):
 		result = []
 		if type(content) is list:
 			self.contentItems = len(content)
 			maxWidth = len(max(content))
 			for i in content:
-				result.append([str(i), 3])
+				result.append([str(i), color])
 		else:
 			self.contentItems = 1
 			maxWidth = len(str(content))
-			result.append([str(content), 3])
+			result.append([str(content), color])
 		return maxWidth, result
+
 
 	# Helper function
 	def createFrame(self, content):
@@ -593,7 +588,7 @@ class NCEngine:
 		return next(self._generateID)
 
 
-	def addGridLine(self, type, pos, rtc):	# Kan ikke vaere usynlige, boer de maaske kunne vaere?
+	def addGridLine(self, type, pos, rtc, visible=True):
 		if rtc:
 			self.lines.append([type, pos, True])
 		else:
@@ -602,25 +597,26 @@ class NCEngine:
 
 	def addLabel(self, x, y, text, color, rtc, visible=True):
 		id = self.generateID()
-		maxWidth, content = self.createContent(text)
+		maxWidth, content = self.createContent(text, color)
 		self.objects[id] = nceLabel(x, y, content)
 		self.objects[id].rtc = True if rtc else False
 		self.objects[id].frame = False
 		self.objects[id].maxWidth = maxWidth
 		self.objects[id].visible = visible
-		self.objects[id].color = 3
+		self.objects[id].color = color
 		return id
 
 
 	def addTextBox(self, x, y, items, color, frame, rtc, visible=True):
 		id = self.generateID()
-		maxWidth, content = self.createContent(items)
+		maxWidth, content = self.createContent(items, color)
 		self.objects[id] = nceTextBox(x, y, content)
 		self.objects[id].rtc = True if rtc else False
 		self.objects[id].frame = self.createFrame(items) if frame else False
 		self.objects[id].maxWidth = maxWidth
 		self.objects[id].visible = visible
-		self.objects[id].color = 3
+		self.objects[id].color = color
+		self.objects[id].highlight(0)	# init
 		return id
 
 
@@ -631,19 +627,20 @@ class NCEngine:
 		self.objects[id].rtc = False
 		self.objects[id].frame = self.createFrame('YES')
 		self.objects[id].visible = visible
-		self.objects[id].color = 3
+		self.objects[id].color = color
 		return id
 
 
 	def addMenu(self, x, y, items, color, frame, rtc, visible=True):
 		id = self.generateID()
-		maxWidth, content = self.createContent(items)
+		maxWidth, content = self.createContent(items, color)
 		self.objects[id] = nceMenu(x, y, content)
 		self.objects[id].rtc = True if rtc else False
 		self.objects[id].frame = self.createFrame(items) if frame else False
 		self.objects[id].maxWidth = maxWidth
 		self.objects[id].visible = visible
-		self.objects[id].color = 3
+		self.objects[id].color = color
+		self.objects[id].highlight(0)	# init
 		return id
 
 
@@ -668,4 +665,3 @@ if sys.version_info < (3, 0):
 # - Lines should never wrap! (on resize) Must be ignored if not on screen
 # - Gracefully handle if objects drawn outside screen, e.g. on resize... perhaps recalculate them, or at least reset program to avoid crash
 # - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
-# - Move COLOR, FRAME, RTC to add-objects, from objects!
