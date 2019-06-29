@@ -10,6 +10,16 @@ import logging as log
 
 # --- Functions ----------------------------------------------------------------------------------
 
+def add_method(cls):
+    """ Decorator function to add a method to an object"""
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            return func(*args, **kwargs)
+        setattr(cls, func.__name__, wrapper)
+        return func # returning func means func can still be used normally
+    return decorator
+
+
 def ensurePackage(package):
     """ Check whether APT package exists, installs if it not """
     if not checkPackage(package):

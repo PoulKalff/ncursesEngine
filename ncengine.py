@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 
 import os
@@ -12,8 +13,10 @@ import poktools
 version = "v0.07"   # fixed tabs
 locale.setlocale(locale.LC_ALL, '')
 
-# --- Classes -------------------------------------------------------------------------------------
+# --- Functions -----------------------------------------------------------------------------------
 
+
+# --- Classes -------------------------------------------------------------------------------------
 
 class File:
 	""" Slave class used by SelectPath """
@@ -60,6 +63,7 @@ class Dir(File):
 		for child in self.children():
 			for kid, depth in child.traverse():
 				yield kid, depth + 1
+
 
 class SelectPath:
 	""" Presents a curses screen where user can select a path / file, returns result """
@@ -140,29 +144,35 @@ class nceLabel(nceObject):
 class nceDialogBox(nceObject):
 	""" Dialog object, which can only be YES or NO """
 
-	def __init__(self, x, y, content):
-		super().__init__(x, y, content)
+	def __init__(self, x, y):
+		super().__init__(x, y, [])
 		self.type = 'DIALOGBOX'
+		self.answer = False
 		self.content = []
-		self.content.append(['NO!', 3])
-		self.content.append(['YES', 3])
+		self.content.append(['        NO!        ', 16])
+		self.content.append(['        YES        ', 3])
 		self.maxWidth = 3
-		self.pointer = poktools.FlipSwitch(1)
-		self.switch()   # To mark selected
+		self.pointer = poktools.FlipSwitch(0)
 
 
-	def switch(self, _color=200):
+	def updateKeys(self, _key):
+		""" Recieves keys and moves on self. """
+		if _key == curses.KEY_UP or _key == curses.KEY_DOWN:
+			self.switch()
+		elif _key == 261 or _key == 10:           # Execute (Key RIGHT / ENTER)
+			return str(self.pointer.get())
+		return (50, _key)		# send key back, to handle in main program
+
+	def switch(self, _color = 16):
 		""" Changes the marked selection"""
-		linesAbove = len(self.content) - 2
-		self.content[self.pointer.get() + linesAbove][1] = 3
 		self.pointer.flip()
-		self.content[self.pointer.get() + linesAbove][1] = _color
 
-
-	def getResult(self):
-		""" Return currently selected item and quit """
-		return self.pointer.get()
-
+		if self.pointer.get():
+			self.content[0][1] = 3
+			self.content[1][1] = 16
+		else:
+			self.content[0][1] = 16
+			self.content[1][1] = 3
 
 
 class nceTextBox(nceObject):
@@ -172,11 +182,13 @@ class nceTextBox(nceObject):
 		super().__init__(x, y, content)
 		self.type = 'TEXTBOX'
 
-	def highlight(self, _nr, _color=200):
+
+	def highlight(self, _nr, _color=16):
 		""" Set all items to default color and highlight <_nr> """
 		for nr, i in enumerate(self.content):
 			self.content[nr][1] = self.color
 		self.content[_nr][1] =  _color
+
 
 	def colorFrame(self, _color):
 		""" Sets the color of the frame of the object, if object has a frame """
@@ -192,11 +204,13 @@ class nceMenu(nceObject):
 	def __init__(self, x, y, content):
 		super().__init__(x, y, content)
 		self.type = 'MENU'
+		self.id = None
 		self.pointer = poktools.RangeIterator(len(self.content) - 1, False)
-		self.linkedObjects = []		# objects that have identical content and are highlighted with this menu
+		self.actions = []		# actions bound to menu content
+		self.linkedObjects = []		# objects that have identical content and are highlighted from this menu
 
 
-	def highlight(self, _nr, _color=200):
+	def highlight(self, _nr, _color=16):
 		""" Set all items to default color and highlight <_nr> """
 		for nr, i in enumerate(self.content):
 			self.content[nr][1] = 3
@@ -212,17 +226,31 @@ class nceMenu(nceObject):
 
 	def updateKeys(self, _key):
 		""" Recieves keys and moves on self. """
-		pass
-
+		if _key == curses.KEY_UP:
+			self.pointer.dec(1)
+		elif _key == curses.KEY_DOWN:
+			self.pointer.inc(1)
+		elif _key == 261 or _key == 10:           # Execute (Key RIGHT / ENTER)
+			if len(self.actions) == 0:
+				pass
+			elif len(self.actions) == 1:	# If only one action, execute this, no matter what menu entry is selected
+				self.actions[0]()
+			elif len(self.actions) == len(self.content):
+				self.actions[self.pointer.get()]()
+		self.highlight(self.pointer.get())
+		# highlight linked objects
+		for o in self.linkedObjects:
+			o.highlight(self.pointer.get())
+		return (self.id, _key)		# send key back, to handle in main program
 
 
 class NCEngine:
 	""" Presents the screen of a program """
 
-	color = { 'white': 0, 'red': 1, 'green' : 2, 'orange' : 3, 'blue' : 4, 'purple' : 5, 'cyan' : 6, 'lightgrey' : 7}	# basic colors
 	_borderColor = 0
 	lines = []
-	objects = {}
+	objects = []		# any object that cannot have control/focus
+	menus = []
 	running = True
 	screenBorder = False
 
@@ -239,15 +267,15 @@ class NCEngine:
 		# init colors
 		curses.start_color()
 		curses.use_default_colors()
-		for i in range(0, curses.COLORS):
+		for i in range(1, curses.COLORS):
 			curses.init_pair(i, i, -1)
-		curses.init_pair(200, curses.COLOR_RED, curses.COLOR_WHITE)			# init 256 colors + 1 special
-		self._generateID = self.idGenerator()
+		curses.init_pair(16, curses.COLOR_RED, curses.COLOR_WHITE)	# special selection color
 
 
 	def wts(self, xCord, yCord, txt, col=0):
 		""" Write to Screen. Wrapper that tests heigth/width before writing to screen  """
 		height, width = self.screen.getmaxyx()
+		txt = txt[:width - yCord]	# do not draw outside screen
 		if xCord > height:
 			 self.screen.addstr(1, 1, 'WARNING!! Program tried to write BELOW window! (height=' + str(height) + ', X-coordinate=' + str(xCord) + ')', curses.color_pair(0))
 		elif yCord > width:
@@ -258,18 +286,6 @@ class NCEngine:
 			except Exception as err:
 				self.exit(['Error encountered in writeToScreen!', str(err)] + ['xCord= ' + str(xCord), 'yCord= ' + str(yCord), 'txt= ' + str(txt), 'col= ' + str(col)])
 		return True
-
-
-	def getActiveObject(self):
-		""" Shows the active object, which will always be the last object in self.objects that is either a menu or a dialogbox! """
-		maxValue = max(self.objects, key=int)
-		index = maxValue
-		while index > 0 and self.objects[index].type != 'MENU' and self.objects[index].type != 'DIALOGBOX':
-			index -= 1
-		if index:
-			return self.objects[index]
-		else:
-			return False
 
 
 	def _getSize(self):
@@ -371,7 +387,7 @@ class NCEngine:
 				stringSliced[1] = eString[pointer.get()]
 				stringSliced[2] = eString[pointer.get() + 1:]
 			self.wts(yPos, xPos, stringSliced[0], color)
-			self.wts(yPos, xPos + len(stringSliced[0]), stringSliced[1], 200)
+			self.wts(yPos, xPos + len(stringSliced[0]), stringSliced[1], 20)
 			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]), stringSliced[2], color)
 			self.wts(yPos, xPos + len(stringSliced[0]) + len(stringSliced[1]) + len(stringSliced[2]), ' ', 3)    # overwrite last char
 #			self.wts(20, 2, "Lenght: " + str(len(eString)) + '   Pointer:' + str(pointer.get()) + '   PointerMax:' + str(pointer.max) + '  ' , 4)
@@ -409,7 +425,15 @@ class NCEngine:
 
 	def showColors(self):
 		""" Show all colors available with their numbers (helper function) """
-		sys.exit('notImplemented')
+		colors = ['white', 'red', 'green', 'orange', 'blue', 'purple', 'cyan', 'lightgrey',
+				 '?', '?', '?', '?', '?', '?', '?', '?']
+		max = curses.COLORS if curses.COLORS <= 16 else 16
+		self.screen.clear()
+		for c in range(0, max):
+			self.wts(c + 2, 1, "color " + str(c) + ' : ' + colors[c], c)
+		self.wts(18, 1, "red on white : ", 16)
+		self.screen.refresh()
+		self.exit('Color demo complete, displayed ' + str(max) + ' colors, + 1 special')
 
 
 	def render(self):
@@ -431,13 +455,25 @@ class NCEngine:
 			# render status
 			self.wts(self.height - 1, 1, self.status , 1)
 			# render objects
-			self.drawObjects()
+			self.drawObjects(self.objects)
+			# render menus
+			self.drawObjects(self.menus)
 		self.screen.refresh()
 
 
-	def drawObjects(self):
+	def updateStatus(self, newStatus = False):
+		""" Update status, from the calling program """
+		height, width = self.screen.getmaxyx()
+		if newStatus:
+			self.status = str(newStatus)
+		spaces = width - len(self.status) - 2
+		self.wts(height - 1, 1, self.status + ' ' * spaces , 1)
+		self.screen.refresh()
+
+
+	def drawObjects(self, objects):
 		""" Draw all objects in object collection """
-		for key, o in self.objects.items():
+		for o in objects:
 			if o.visible:
 				if o.rtc:	# only horisontal center is supported currently, and only absolute values
 					hcenter = int((self.width - 1) / 2)
@@ -452,11 +488,15 @@ class NCEngine:
 						self.wts(posY + nr, posX + 1, item[0], item[1])
 				# text
 				for nr, item in enumerate(o.content):
+					for coord in self.verticalBoundaries:	# Check if a line is crossed
+						if coord > posY and coord < posY + len(item[0]):
+							item[0] = item[0]   [:coord - posY - 2] + '..'
 					try:
 						self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 					except:
 						self.exit("Error occured in drawObjects, while drawing :  " + str(o.content))
 		return True
+
 
 	def drawLines(self):
 		""" Draw all lines added to object (except border) """
@@ -487,6 +527,9 @@ class NCEngine:
 		for x in intersections[1]:
 			for y in intersections[0]:
 				self.wts(x, y, '┼', self._borderColor)
+		self.verticalBoundaries = intersections[0]
+		if self.screenBorder:
+			self.verticalBoundaries.append(self.width)
 
 
 	def drawBorder(self):
@@ -575,19 +618,6 @@ class NCEngine:
 		return result
 
 
-	# Helper function
-	def idGenerator(self):
-		n = 1
-		while True:
-			yield n
-			n += 1
-
-	# Helper function
-	def generateID(self):
-		""" Get the next sequential ID """
-		return next(self._generateID)
-
-
 	def addGridLine(self, type, pos, rtc, visible=True):
 		if rtc:
 			self.lines.append([type, pos, True])
@@ -596,52 +626,57 @@ class NCEngine:
 
 
 	def addLabel(self, x, y, text, color, rtc, visible=True):
-		id = self.generateID()
 		maxWidth, content = self.createContent(text, color)
-		self.objects[id] = nceLabel(x, y, content)
-		self.objects[id].rtc = True if rtc else False
-		self.objects[id].frame = False
-		self.objects[id].maxWidth = maxWidth
-		self.objects[id].visible = visible
-		self.objects[id].color = color
-		return id
+		obj = nceLabel(x, y, content)
+		obj.rtc = True if rtc else False
+		obj.frame = False
+		obj.maxWidth = maxWidth
+		obj.visible = visible
+		obj.color = color
+		self.objects.append(obj)
+		return obj
 
 
 	def addTextBox(self, x, y, items, color, frame, rtc, visible=True):
-		id = self.generateID()
 		maxWidth, content = self.createContent(items, color)
-		self.objects[id] = nceTextBox(x, y, content)
-		self.objects[id].rtc = True if rtc else False
-		self.objects[id].frame = self.createFrame(items) if frame else False
-		self.objects[id].maxWidth = maxWidth
-		self.objects[id].visible = visible
-		self.objects[id].color = color
-		self.objects[id].highlight(0)	# init
-		return id
+		obj = nceTextBox(x, y, content)
+		obj.rtc = True if rtc else False
+		obj.frame = self.createFrame(items) if frame else False
+		obj.maxWidth = maxWidth
+		obj.visible = visible
+		obj.color = color
+		obj.highlight(0)	# init
+		self.objects.append(obj)
+		return obj
 
 
-	def addDialogBox(self, color, visible=True):
-		id = self.generateID()
-		x, y = self.calculateRtc(x)
-		self.objects[id] = nceDialogBox(x, y, [])
-		self.objects[id].rtc = False
-		self.objects[id].frame = self.createFrame('YES')
-		self.objects[id].visible = visible
-		self.objects[id].color = color
-		return id
+	def addDialogBox(self, color):
+		""" Always appears in the center """
+		self._getSize()
+		obj = nceDialogBox(self.hcenter - 11, 10)
+		obj.rtc = False
+		obj.frame = [	['╭' + ('─' * 19) + '╮', 3],
+						['│' + (' ' * 19) + '│', 3],
+						['│' + (' ' * 19) + '│', 3],
+						['└' + ('─' * 19) + '╯', 3]]
+		obj.visible = True
+		obj.color = color
+		self.menus.append(obj)
+		return obj
 
 
-	def addMenu(self, x, y, items, color, frame, rtc, visible=True):
-		id = self.generateID()
+	def addMenu(self, ID, x, y, items, color, frame, rtc, visible=True):
 		maxWidth, content = self.createContent(items, color)
-		self.objects[id] = nceMenu(x, y, content)
-		self.objects[id].rtc = True if rtc else False
-		self.objects[id].frame = self.createFrame(items) if frame else False
-		self.objects[id].maxWidth = maxWidth
-		self.objects[id].visible = visible
-		self.objects[id].color = color
-		self.objects[id].highlight(0)	# init
-		return id
+		obj = nceMenu(x, y, content)
+		obj.rtc = True if rtc else False
+		obj.frame = self.createFrame(items) if frame else False
+		obj.maxWidth = maxWidth
+		obj.visible = visible
+		obj.color = color
+		obj.id = ID
+		obj.highlight(0)	# init
+		self.menus.append(obj)
+		return obj
 
 
 
@@ -654,14 +689,9 @@ if sys.version_info < (3, 0):
 
 
 # --- TODO ---------------------------------------------------------------------------------------
-# - BUG 	  : Stadigt problemer med scroll/count af bytes..... (??)
 # - BUG		  : Crasher stadigt hvis window bliver minimalt I HOEJDE!!
-# - Status mangler for alle editors ..... pånær digitseditor
-# - En form for funktion hvor man kan tilfoeje colour-init-pairs, ud over default......addColor(c1, c2='Black')
-# - Et kald hvor man kan tilfoeje keyboard-keys, og definere hvad der skal ske hvis de bliver kaldt
 # - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
 # - self.lines skal kunne saettes til invisible
-# - Lines should never wrap! (on resize) Must be ignored if not on screen
-# - Gracefully handle if objects drawn outside screen, e.g. on resize... perhaps recalculate them, or at least reset program to avoid crash
 # - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
+# - Dialogbox not functional yet
