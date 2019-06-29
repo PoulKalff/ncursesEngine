@@ -118,7 +118,19 @@ class SelectPath:
 		else: return File(name)
 
 
-# --- Inherited CLasses -----------------------------------------------------------------------
+# --- Object CLasses -----------------------------------------------------------------------
+
+
+
+class nceLine:
+	""" Line object"""
+
+	def __init__(self, direction, coord):
+		self.type = 'Line'
+		self.coordinate = coord
+		self.direction = direction
+		self.visible = True
+		self.color = 3
 
 
 class nceObject:
@@ -490,7 +502,8 @@ class NCEngine:
 				for nr, item in enumerate(o.content):
 					for coord in self.verticalBoundaries:	# Check if a line is crossed
 						if coord > posY and coord < posY + len(item[0]):
-							item[0] = item[0]   [:coord - posY - 2] + '..'
+							if len(self.menus) == 1:
+								item[0] = item[0][:coord - posY - 2] + '..'
 					try:
 						self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 					except:
@@ -502,22 +515,22 @@ class NCEngine:
 		""" Draw all lines added to object (except border) """
 		intersections = [[], []]
 		for l in self.lines:
-			if l[0] == 'v':
-				if len(l) == 3:
-					position = l[1] + int((self.width - 1) / 2)
+			if l.direction == 'v':
+				if l.rtc:
+					position = l.coordinate + int((self.width - 1) / 2)
 				else:
-					position = int((l[1] * self.width / 100) if type(l[1]) == float else l[1])
+					position = int((l.coordinate * self.width / 100) if type(l.coordinate) == float else l.coordinate)
 				intersections[0].append(position)
 				for yPos in range(1, self.height - 2):
 					self.wts(yPos, position, '│', self._borderColor)
 				# endpoints
 				self.wts(0, position, '┬',self._borderColor)
 				self.wts(self.height - 2, position, '┴', self._borderColor)
-			elif l[0] == 'h':
-				if len(l) == 3:
-					position = l[1] + ((self.height - 1) / 2)
+			elif l.direction == 'h':
+				if l.rtc:
+					position = l.coordinate + ((self.height - 1) / 2)
 				else:
-					position = int((l[1] * self.height / 100) - 1 if type(l[1]) == float else l[1])
+					position = int((l.coordinate * self.height / 100) - 1 if type(l.coordinate) == float else l.coordinate)
 				intersections[1].append(position)
 				self.wts(position, 1, '─' * (self.width - 2), self._borderColor)
 				# endpoints
@@ -619,10 +632,12 @@ class NCEngine:
 
 
 	def addGridLine(self, type, pos, rtc, visible=True):
-		if rtc:
-			self.lines.append([type, pos, True])
-		else:
-			self.lines.append([type, pos])
+		obj = nceLine(type, pos)
+		obj.rtc = True if rtc else False
+		obj.visible = visible
+		obj.color = 3
+		self.lines.append(obj)
+		return obj
 
 
 	def addLabel(self, x, y, text, color, rtc, visible=True):
@@ -690,8 +705,6 @@ if sys.version_info < (3, 0):
 
 # --- TODO ---------------------------------------------------------------------------------------
 # - BUG		  : Crasher stadigt hvis window bliver minimalt I HOEJDE!!
-# - En funktion addData() som tilfoejer data til current frame, og en funktion drawFrame() som tegner denne og tømmer buffer. Boer beregne/optimere data, f.eks. intersects
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
-# - self.lines skal kunne saettes til invisible
 # - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
 # - Dialogbox not functional yet
