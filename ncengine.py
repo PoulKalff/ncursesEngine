@@ -120,8 +120,6 @@ class SelectPath:
 
 # --- Object CLasses -----------------------------------------------------------------------
 
-
-
 class nceLine:
 	""" Line object"""
 
@@ -198,7 +196,7 @@ class nceTextBox(nceObject):
 	def highlight(self, _nr, _color=16):
 		""" Set all items to default color and highlight <_nr> """
 		for nr, i in enumerate(self.content):
-			self.content[nr][1] = self.color
+			self.content[nr][1] = self.content[nr][2]
 		self.content[_nr][1] =  _color
 
 
@@ -225,7 +223,7 @@ class nceMenu(nceObject):
 	def highlight(self, _nr, _color=16):
 		""" Set all items to default color and highlight <_nr> """
 		for nr, i in enumerate(self.content):
-			self.content[nr][1] = 3
+			self.content[nr][1] = self.content[nr][2]
 		self.content[_nr][1] =  _color
 
 
@@ -438,14 +436,18 @@ class NCEngine:
 	def showColors(self):
 		""" Show all colors available with their numbers (helper function) """
 		colors = ['white', 'red', 'green', 'orange', 'blue', 'purple', 'cyan', 'lightgrey',
-				 '?', '?', '?', '?', '?', '?', '?', '?']
+				 'darkgrey', 'light red', 'light green', 'yellow', 'light blue', 'purple', 'cyan', 'dark white']
 		max = curses.COLORS if curses.COLORS <= 16 else 16
 		self.screen.clear()
 		for c in range(0, max):
 			self.wts(c + 2, 1, "color " + str(c) + ' : ' + colors[c], c)
-		self.wts(18, 1, "red on white : ", 16)
+		self.wts(18, 1, "color 16 : red on white", 16)
+		self.wts(20, 1, 'Color demo, displaying ' + str(max) + ' colors + 1 special')
 		self.screen.refresh()
-		self.exit('Color demo complete, displayed ' + str(max) + ' colors, + 1 special')
+		ch = False
+		while not ch:
+			ch = self.screen.getch()
+		self.exit('Color demo complete')
 
 
 	def render(self):
@@ -612,11 +614,11 @@ class NCEngine:
 			self.contentItems = len(content)
 			maxWidth = len(max(content))
 			for i in content:
-				result.append([str(i), color])
+				result.append([str(i), color, color])
 		else:
 			self.contentItems = 1
 			maxWidth = len(str(content))
-			result.append([str(content), color])
+			result.append([str(content), color, color])
 		return maxWidth, result
 
 
