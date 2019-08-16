@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 
 import os
@@ -192,13 +191,10 @@ class nceTextBox(nceObject):
 		super().__init__(x, y, content)
 		self.type = 'TEXTBOX'
 
-
-	def highlight(self, _nr, _color=16):
-		""" Set all items to default color and highlight <_nr> """
+	def highlight(self, highlightedItem):
+		""" Set all items to default color and highlight one """
 		for nr, i in enumerate(self.content):
-			self.content[nr][1] = self.content[nr][2]
-		self.content[_nr][1] =  _color
-
+			self.content[nr][1] = 16 if nr == highlightedItem else self.content[nr][2]
 
 	def colorFrame(self, _color):
 		""" Sets the color of the frame of the object, if object has a frame """
@@ -220,11 +216,11 @@ class nceMenu(nceObject):
 		self.linkedObjects = []		# objects that have identical content and are highlighted from this menu
 
 
-	def highlight(self, _nr, _color=16):
-		""" Set all items to default color and highlight <_nr> """
+	def highlight(self, highligtedItem):
+		""" Set all items to default color and highlight one"""
 		for nr, i in enumerate(self.content):
 			self.content[nr][1] = self.content[nr][2]
-		self.content[_nr][1] =  _color
+		self.content[highligtedItem][1] =  16
 
 
 	def colorFrame(self, _color):
@@ -291,10 +287,7 @@ class NCEngine:
 		elif yCord > width:
 			 self.screen.addstr(1, 1, 'WARNING!! Program tried to write LEFT OF window! (width=' + str(width) + ', Y-coordinate=' + str(yCord) + ')', curses.color_pair(0))
 		else:
-			try:
-				self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
-			except Exception as err:
-				self.exit(['Error encountered in writeToScreen!', str(err)] + ['xCord= ' + str(xCord), 'yCord= ' + str(yCord), 'txt= ' + str(txt), 'col= ' + str(col)])
+			self.screen.addstr(xCord, yCord, str(txt), curses.color_pair(col))
 		return True
 
 
@@ -509,7 +502,7 @@ class NCEngine:
 					try:
 						self.wts(posY + nr + 1, posX + 2, item[0], item[1])
 					except:
-						self.exit("Error occured in drawObjects, while drawing :  " + str(o.content))
+						self.exit('Error occured in drawObjects, while drawing : OBJECT= "' + str(o.content) + '" ITEM= "' + str(item)) + '"'
 		return True
 
 
@@ -606,27 +599,12 @@ class NCEngine:
 	def borderColor(self, val):
 		self._borderColor = self.color[val.lower()] if type(val) == str else val
 
-
-	# Helper function
-	def createContent(self, content, color):
-		result = []
-		if type(content) is list:
-			self.contentItems = len(content)
-			maxWidth = len(max(content))
-			for i in content:
-				result.append([str(i), color, color])
-		else:
-			self.contentItems = 1
-			maxWidth = len(str(content))
-			result.append([str(content), color, color])
-		return maxWidth, result
-
-
 	# Helper function
 	def createFrame(self, content):
 		result = []
 		maxWidth = len(max(content))
 		result.append(['╭' + ('─' * (maxWidth)) + '╮', 3])        # Top
+		self.contentItems = len(content)
 		for i in range(self.contentItems):
 			result.append(['│' + (' ' * (maxWidth))  + '│', 3])
 		result.append(['└' + ('─' * (maxWidth)) + '╯', 3])        # Bottom
@@ -642,27 +620,23 @@ class NCEngine:
 		return obj
 
 
-	def addLabel(self, x, y, text, color, rtc, visible=True):
-		maxWidth, content = self.createContent(text, color)
-		obj = nceLabel(x, y, content)
+	def addLabel(self, x, y, content, color, rtc, visible=True):
+		obj = nceLabel(x, y, [[content, color]])
 		obj.rtc = True if rtc else False
 		obj.frame = False
-		obj.maxWidth = maxWidth
+		obj.maxWidth = len(content)
 		obj.visible = visible
-		obj.color = color
 		self.objects.append(obj)
 		return obj
 
 
-	def addTextBox(self, x, y, items, color, frame, rtc, visible=True):
-		maxWidth, content = self.createContent(items, color)
+	def addTextBox(self, x, y, content, frame, rtc, visible=True):
 		obj = nceTextBox(x, y, content)
 		obj.rtc = True if rtc else False
 		obj.frame = self.createFrame(items) if frame else False
-		obj.maxWidth = maxWidth
+		obj.maxWidth = len(max(content))
 		obj.visible = visible
-		obj.color = color
-		obj.highlight(0)	# init
+		obj.highlight(0)
 		self.objects.append(obj)
 		return obj
 
@@ -682,16 +656,14 @@ class NCEngine:
 		return obj
 
 
-	def addMenu(self, ID, x, y, items, color, frame, rtc, visible=True):
-		maxWidth, content = self.createContent(items, color)
+	def addMenu(self, ID, x, y, content, frame, rtc, visible=True):
 		obj = nceMenu(x, y, content)
 		obj.rtc = True if rtc else False
-		obj.frame = self.createFrame(items) if frame else False
-		obj.maxWidth = maxWidth
+		obj.frame = self.createFrame(content) if frame else False
+		obj.maxWidth = len(max(content))
 		obj.visible = visible
-		obj.color = color
 		obj.id = ID
-		obj.highlight(0)	# init
+		obj.highlight(0)
 		self.menus.append(obj)
 		return obj
 
@@ -709,4 +681,5 @@ if sys.version_info < (3, 0):
 # - BUG		  : Crasher stadigt hvis window bliver minimalt I HOEJDE!!
 # - Position objects relative to RIGHT SIDE / BOTTOM / VERTICAL CENTER
 # - Boer kunne overskrive ESC => QUIT, saa den kan bruges til noget andet
+# - Mulighed for CENTER i alle menuer/testboxe (for at undgaa "    MENU    ")
 # - Dialogbox not functional yet
